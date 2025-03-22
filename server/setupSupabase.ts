@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { log } from './vite';
 import { memStorage } from './storage';
@@ -6,79 +7,63 @@ export async function migrateToSupabase() {
   log('Starting Supabase database setup...', 'supabase-migration');
 
   try {
-    // Create tables using direct SQL
-    const { error: createError } = await supabase.from('categories').select('*').limit(1);
-    
-    // If the table doesn't exist, create all tables
-    if (createError?.message.includes('does not exist')) {
-      const { error: sqlError } = await supabase.from('categories').select('*').limit(1);
-      
-      // Execute create table statements directly
-      const { error: createTablesError } = await supabase.from('_migrations').select('*');
-      
-      const createQueries = [
-        `CREATE TABLE IF NOT EXISTS categories (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            image_url TEXT NOT NULL
-          );
+    const createTables = `
+      CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        image_url TEXT NOT NULL
+      );
 
-          CREATE TABLE IF NOT EXISTS products (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            tagline TEXT NOT NULL,
-            price DOUBLE PRECISION NOT NULL,
-            original_price DOUBLE PRECISION,
-            description TEXT NOT NULL,
-            image_url TEXT NOT NULL,
-            rating DOUBLE PRECISION NOT NULL,
-            review_count INTEGER NOT NULL,
-            category_id INTEGER NOT NULL,
-            is_featured BOOLEAN NOT NULL DEFAULT false,
-            is_best_seller BOOLEAN DEFAULT false,
-            is_new_arrival BOOLEAN DEFAULT false
-          );
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        tagline TEXT NOT NULL,
+        price DOUBLE PRECISION NOT NULL,
+        original_price DOUBLE PRECISION,
+        description TEXT NOT NULL,
+        image_url TEXT NOT NULL,
+        rating DOUBLE PRECISION NOT NULL,
+        review_count INTEGER NOT NULL,
+        category_id INTEGER NOT NULL,
+        is_featured BOOLEAN NOT NULL DEFAULT false,
+        is_best_seller BOOLEAN DEFAULT false,
+        is_new_arrival BOOLEAN DEFAULT false
+      );
 
-          CREATE TABLE IF NOT EXISTS reviews (
-            id SERIAL PRIMARY KEY,
-            product_id INTEGER NOT NULL,
-            user_name TEXT NOT NULL,
-            user_image_url TEXT NOT NULL,
-            rating INTEGER NOT NULL,
-            comment TEXT NOT NULL,
-            is_verified BOOLEAN NOT NULL DEFAULT true
-          );
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL,
+        user_name TEXT NOT NULL,
+        user_image_url TEXT NOT NULL,
+        rating INTEGER NOT NULL,
+        comment TEXT NOT NULL,
+        is_verified BOOLEAN NOT NULL DEFAULT true
+      );
 
-          CREATE TABLE IF NOT EXISTS testimonials (
-            id SERIAL PRIMARY KEY,
-            user_name TEXT NOT NULL,
-            user_image_url TEXT NOT NULL,
-            rating INTEGER NOT NULL,
-            comment TEXT NOT NULL,
-            is_verified BOOLEAN NOT NULL DEFAULT true
-          );
+      CREATE TABLE IF NOT EXISTS testimonials (
+        id SERIAL PRIMARY KEY,
+        user_name TEXT NOT NULL,
+        user_image_url TEXT NOT NULL,
+        rating INTEGER NOT NULL,
+        comment TEXT NOT NULL,
+        is_verified BOOLEAN NOT NULL DEFAULT true
+      );
 
-          CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            items JSONB NOT NULL,
-            status TEXT NOT NULL,
-            total_amount DOUBLE PRECISION NOT NULL,
-            shipping_address TEXT NOT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-        `];
-        
-        for (const query of createQueries) {
-          const { error } = await supabase.from('categories').select('*');
-          if (error?.message.includes('does not exist')) {
-            // Execute raw SQL query
-            const { error: sqlError } = await supabase.from('migrations').insert({ query }).select();
-            if (sqlError) throw sqlError;
-          }
-        }
-    }
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        items JSONB NOT NULL,
+        status TEXT NOT NULL,
+        total_amount DOUBLE PRECISION NOT NULL,
+        shipping_address TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `;
+
+    // Execute SQL directly
+    const { error: createError } = await supabase.rpc('exec_sql', { sql: createTables });
+    if (createError) throw createError;
 
     // Migrate data from MemStorage
     log('Migrating data from MemStorage to Supabase...', 'supabase-migration');
@@ -126,7 +111,7 @@ export async function migrateToSupabase() {
       }
     }
 
-    // Migrate Testimonials
+    // Migrate Testimonials  
     const testimonials = await memStorage.getAllTestimonials();
     for (const testimonial of testimonials) {
       const { error } = await supabase
