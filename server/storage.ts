@@ -3,6 +3,7 @@ import {
   type Category, type Product, type Review, type Testimonial, type Order,
   type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder
 } from "@shared/schema";
+import { log } from "./vite";
 
 export interface IStorage {
   // Categories
@@ -255,4 +256,21 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Create instance of MemStorage as a fallback
+const memStorage = new MemStorage();
+
+// Import supabaseStorage
+import { supabaseStorage } from './supabaseStorage';
+
+// Initialize Supabase storage
+(async () => {
+  try {
+    await supabaseStorage.initialize();
+    log("Supabase storage initialized successfully", "storage");
+  } catch (error) {
+    log(`Error initializing Supabase storage: ${error}. Falling back to in-memory storage.`, "storage");
+  }
+})();
+
+// Export the Supabase storage as the primary storage interface
+export const storage = supabaseStorage;
