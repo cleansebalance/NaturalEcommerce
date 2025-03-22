@@ -30,6 +30,9 @@ function Router() {
       <Route path="/checkout" component={Checkout} />
       <Route path="/about" component={About} />
       <Route path="/contact" component={Contact} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      <Route path="/account" component={Account} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route component={NotFound} />
@@ -40,19 +43,21 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ProductsProvider>
-        <CartProvider>
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-grow">
-              <Router />
-            </main>
-            <Footer />
-            <CartDrawer />
-          </div>
-          <Toaster />
-        </CartProvider>
-      </ProductsProvider>
+      <AuthProvider>
+        <ProductsProvider>
+          <CartProvider>
+            <div className="flex flex-col min-h-screen">
+              <Navbar />
+              <main className="flex-grow pt-20"> {/* Add padding top for fixed header */}
+                <Router />
+              </main>
+              <Footer />
+              <CartDrawer />
+            </div>
+            <Toaster />
+          </CartProvider>
+        </ProductsProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
