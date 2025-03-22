@@ -44,8 +44,8 @@ const Navbar = () => {
               <Link href="/" className="font-medium text-dark hover:text-primary transition-colors duration-300">Home</Link>
               <Link href="/shop" className="font-medium text-dark hover:text-primary transition-colors duration-300">Shop</Link>
               <Link href="/shop" className="font-medium text-dark hover:text-primary transition-colors duration-300">Collections</Link>
-              <Link href="/" className="font-medium text-dark hover:text-primary transition-colors duration-300">About</Link>
-              <Link href="/" className="font-medium text-dark hover:text-primary transition-colors duration-300">Contact</Link>
+              <Link href="/about" className="font-medium text-dark hover:text-primary transition-colors duration-300">About</Link>
+              <Link href="/contact" className="font-medium text-dark hover:text-primary transition-colors duration-300">Contact</Link>
             </div>
           </div>
           
@@ -104,13 +104,13 @@ const Navbar = () => {
           >
             Collections
           </Link>
-          <Link href="/" 
+          <Link href="/about" 
             className="block font-medium text-dark hover:text-primary transition-colors duration-300"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             About
           </Link>
-          <Link href="/" 
+          <Link href="/contact" 
             className="block font-medium text-dark hover:text-primary transition-colors duration-300"
             onClick={() => setIsMobileMenuOpen(false)}
           >
