@@ -15,7 +15,7 @@ export async function migrateToSupabase() {
       
       // Execute create table statements
       await supabase.from('_migrations').select('*').then(async () => {
-        const createQueries = [
+        const createQueries = [`
           CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
@@ -67,7 +67,7 @@ export async function migrateToSupabase() {
             shipping_address TEXT NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
           );
-        ];
+        `];
         
         for (const query of createQueries) {
           const { error } = await supabase.rpc('exec', { query });
