@@ -6,9 +6,16 @@ export async function migrateToSupabase() {
   log('Starting Supabase database setup...', 'supabase-migration');
 
   try {
-    // Create tables using rpc
-    const { error: createError } = await supabase.rpc('create_tables', {
-      sql_commands: `
+    // Create tables using direct SQL
+    const { error: createError } = await supabase.from('categories').select('*').limit(1);
+    
+    // If the table doesn't exist, create all tables
+    if (createError?.message.includes('does not exist')) {
+      const { error: sqlError } = await supabase.from('categories').select('*').limit(1);
+      
+      // Execute create table statements
+      await supabase.from('_migrations').select('*').then(async () => {
+        const createQueries = [
           CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
@@ -59,11 +66,14 @@ export async function migrateToSupabase() {
             total_amount DOUBLE PRECISION NOT NULL,
             shipping_address TEXT NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );`
-    });
-
-    if (createError) {
-      throw new Error(`Failed to create tables: ${createError.message}`);
+          );
+        ];
+        
+        for (const query of createQueries) {
+          const { error } = await supabase.rpc('exec', { query });
+          if (error) throw error;
+        }
+      });
     }
 
     // Migrate data from MemStorage
@@ -134,8 +144,9 @@ export async function migrateToSupabase() {
     log('Data migration completed', 'supabase-migration');
     log('Supabase migration completed successfully', 'supabase-migration');
     return true;
-  } catch (error) {
-    log(`Supabase migration failed: ${error}`, 'supabase-migration');
+  } catch (error: any) {
+    const message = error?.message || String(error);
+    log(`Supabase migration failed: ${message}`, 'supabase-migration');
     return false;
   }
 }
