@@ -15,7 +15,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <Announcement />
         <Header />
       </div>
-      <main className="flex-grow mt-[120px] mb-[280px]">
+      <main className="flex-grow mt-[120px] mb-[200px]">
         {children}
       </main>
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-background">
