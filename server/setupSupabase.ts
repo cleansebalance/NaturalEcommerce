@@ -6,8 +6,9 @@ export async function migrateToSupabase() {
   log('Starting Supabase database setup...', 'supabase-migration');
 
   try {
-    // Create tables using direct SQL execution
-    const { data, error: createError } = await supabase.sql`
+    // Create tables using rpc
+    const { error: createError } = await supabase.rpc('create_tables', {
+      sql_commands: `
           CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
@@ -58,8 +59,8 @@ export async function migrateToSupabase() {
             total_amount DOUBLE PRECISION NOT NULL,
             shipping_address TEXT NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-        `;
+          );`
+    });
 
     if (createError) {
       throw new Error(`Failed to create tables: ${createError.message}`);
