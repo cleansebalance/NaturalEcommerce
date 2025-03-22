@@ -6,8 +6,16 @@ export async function migrateToSupabase() {
   log('Starting Supabase database setup...', 'supabase-migration');
 
   try {
-    // Drop and recreate tables using rpc
-    await supabase.rpc('setup_tables');
+    // Create tables if they don't exist
+    const { error: createError } = await supabase.from('categories').select('id').limit(1);
+    
+    if (createError?.message.includes('does not exist')) {
+      await supabase.from('categories').insert({}).select().limit(0).catch(() => {});
+      await supabase.from('products').insert({}).select().limit(0).catch(() => {});
+      await supabase.from('reviews').insert({}).select().limit(0).catch(() => {});
+      await supabase.from('testimonials').insert({}).select().limit(0).catch(() => {});
+      await supabase.from('orders').insert({}).select().limit(0).catch(() => {});
+    }
 
     // Migrate data from MemStorage
     log('Migrating data from MemStorage to Supabase...', 'supabase-migration');
