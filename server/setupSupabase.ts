@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { log } from './vite';
 import { memStorage } from './storage';
@@ -7,17 +6,15 @@ export async function migrateToSupabase() {
   log('Starting Supabase database setup...', 'supabase-migration');
 
   try {
-    // Create tables using raw SQL
-    const { error: createError } = await supabase
-      .rpc('raw_sql', {
-        query: `
+    // Create tables using direct SQL execution
+    const { data, error: createError } = await supabase.sql`
           CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT NOT NULL,
             image_url TEXT NOT NULL
           );
-          
+
           CREATE TABLE IF NOT EXISTS products (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
@@ -33,7 +30,7 @@ export async function migrateToSupabase() {
             is_best_seller BOOLEAN DEFAULT false,
             is_new_arrival BOOLEAN DEFAULT false
           );
-          
+
           CREATE TABLE IF NOT EXISTS reviews (
             id SERIAL PRIMARY KEY,
             product_id INTEGER NOT NULL,
@@ -43,7 +40,7 @@ export async function migrateToSupabase() {
             comment TEXT NOT NULL,
             is_verified BOOLEAN NOT NULL DEFAULT true
           );
-          
+
           CREATE TABLE IF NOT EXISTS testimonials (
             id SERIAL PRIMARY KEY,
             user_name TEXT NOT NULL,
@@ -52,7 +49,7 @@ export async function migrateToSupabase() {
             comment TEXT NOT NULL,
             is_verified BOOLEAN NOT NULL DEFAULT true
           );
-          
+
           CREATE TABLE IF NOT EXISTS orders (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
@@ -61,8 +58,8 @@ export async function migrateToSupabase() {
             total_amount DOUBLE PRECISION NOT NULL,
             shipping_address TEXT NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );`
-      });
+          );
+        `;
 
     if (createError) {
       throw new Error(`Failed to create tables: ${createError.message}`);
