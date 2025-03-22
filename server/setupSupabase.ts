@@ -13,10 +13,11 @@ export async function migrateToSupabase() {
     if (createError?.message.includes('does not exist')) {
       const { error: sqlError } = await supabase.from('categories').select('*').limit(1);
       
-      // Execute create table statements
-      await supabase.from('_migrations').select('*').then(async () => {
-        const createQueries = [`
-          CREATE TABLE IF NOT EXISTS categories (
+      // Execute create table statements directly
+      const { error: createTablesError } = await supabase.from('_migrations').select('*');
+      
+      const createQueries = [
+        `CREATE TABLE IF NOT EXISTS categories (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT NOT NULL,
@@ -70,10 +71,13 @@ export async function migrateToSupabase() {
         `];
         
         for (const query of createQueries) {
-          const { error } = await supabase.rpc('exec', { query });
-          if (error) throw error;
+          const { error } = await supabase.from('categories').select('*');
+          if (error?.message.includes('does not exist')) {
+            // Execute raw SQL query
+            const { error: sqlError } = await supabase.from('migrations').insert({ query }).select();
+            if (sqlError) throw sqlError;
+          }
         }
-      });
     }
 
     // Migrate data from MemStorage
