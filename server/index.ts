@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import migrateToSupabase from "./setupSupabase";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,25 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Add a route to trigger the Supabase migration
+  app.post("/api/supabase/migrate", async (_req, res) => {
+    try {
+      log("Starting Supabase migration...", "supabase-admin");
+      const success = await migrateToSupabase();
+      
+      if (success) {
+        log("Supabase migration successful", "supabase-admin");
+        res.status(200).json({ message: "Migration successful" });
+      } else {
+        log("Supabase migration failed", "supabase-admin");
+        res.status(500).json({ message: "Migration failed. Check server logs for details." });
+      }
+    } catch (error) {
+      log(`Migration error: ${error}`, "supabase-admin");
+      res.status(500).json({ message: "Migration failed with an error" });
+    }
+  });
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

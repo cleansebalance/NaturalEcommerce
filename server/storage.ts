@@ -257,20 +257,10 @@ export class MemStorage implements IStorage {
 }
 
 // Create instance of MemStorage as a fallback
-const memStorage = new MemStorage();
+export const memStorage = new MemStorage();
 
-// Import supabaseStorage
+// For now, use MemStorage while we set up Supabase
+export const storage = memStorage;
+
+// Import supabaseStorage for future use
 import { supabaseStorage } from './supabaseStorage';
-
-// Initialize Supabase storage
-(async () => {
-  try {
-    await supabaseStorage.initialize();
-    log("Supabase storage initialized successfully", "storage");
-  } catch (error) {
-    log(`Error initializing Supabase storage: ${error}. Falling back to in-memory storage.`, "storage");
-  }
-})();
-
-// Export the Supabase storage as the primary storage interface
-export const storage = supabaseStorage;
