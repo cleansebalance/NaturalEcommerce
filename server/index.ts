@@ -60,33 +60,6 @@ app.use((req, res, next) => {
     log(`Supabase connection error: ${error}. Using in-memory storage`, "supabase");
   }
   
-  // Add a route to trigger the Supabase migration
-  app.post("/api/supabase/migrate", async (_req, res) => {
-    try {
-      log("Starting Supabase migration...", "supabase-admin");
-      await migrateToSupabase();
-      
-      // After migration, initialize Supabase storage and set it as the provider
-      await supabaseStorage.initialize();
-      setStorage(supabaseStorage);
-      
-      log("Supabase migration completed successfully", "supabase-admin");
-      log("Switched to Supabase storage", "supabase-admin");
-      
-      res.status(200).json({ 
-        success: true, 
-        message: "Migration successful and switched to Supabase storage" 
-      });
-    } catch (error) {
-      log(`Migration error: ${error}`, "supabase-admin");
-      res.status(500).json({ 
-        success: false,
-        message: "Migration failed with an error",
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
