@@ -260,7 +260,19 @@ export class MemStorage implements IStorage {
 export const memStorage = new MemStorage();
 
 // For now, use MemStorage while we set up Supabase
-export const storage = memStorage;
+let _currentStorage: IStorage = memStorage;
+
+// Function to switch storage implementation
+export function setStorage(storageImpl: IStorage): void {
+  _currentStorage = storageImpl;
+}
+
+// Export a proxy that forwards calls to the current storage implementation
+export const storage: IStorage = new Proxy({} as IStorage, {
+  get: (target, prop) => {
+    return _currentStorage[prop as keyof IStorage];
+  }
+});
 
 // Import supabaseStorage for future use
 import { supabaseStorage } from './supabaseStorage';

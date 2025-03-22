@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
-import { X, User, ShoppingBag, Heart, Settings, LogOut } from 'lucide-react';
+import { X, User, ShoppingBag, Heart, Settings, LogOut, Database } from 'lucide-react';
 
 interface UserProfileDrawerProps {
   isOpen: boolean;
@@ -122,6 +122,16 @@ export function UserProfileDrawer({ isOpen, onClose }: UserProfileDrawerProps) {
                     <Settings className="h-5 w-5 text-neutral-600" />
                     <span>Settings</span>
                   </button>
+                  
+                  {user?.role === 'admin' && (
+                    <button 
+                      onClick={() => handleNavigation('/admin')}
+                      className="w-full flex items-center space-x-3 p-3 rounded-md hover:bg-neutral-50 transition-colors text-left"
+                    >
+                      <Database className="h-5 w-5 text-neutral-600" />
+                      <span>Admin Dashboard</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (

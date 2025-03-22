@@ -1,7 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import migrateToSupabase from "./setupSupabase";
+import { migrateToSupabase } from "./setupSupabase";
+import { storage, setStorage } from "./storage";
+import { supabase } from "./supabase";
+import { supabaseStorage } from "./supabaseStorage";
 
 const app = express();
 app.use(express.json());
@@ -38,22 +41,49 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Check if Supabase is properly configured and initialized
+  try {
+    log("Checking Supabase connection...", "supabase");
+    const { data } = await supabase.from('categories').select('*').limit(1);
+    
+    if (data && data.length > 0) {
+      log("Supabase tables detected, using Supabase storage", "supabase");
+      
+      // Initialize Supabase storage and set it as the storage provider
+      await supabaseStorage.initialize();
+      setStorage(supabaseStorage);
+      log("Switched to Supabase storage successfully", "supabase");
+    } else {
+      log("No Supabase tables detected, using in-memory storage", "supabase");
+    }
+  } catch (error) {
+    log(`Supabase connection error: ${error}. Using in-memory storage`, "supabase");
+  }
+  
   // Add a route to trigger the Supabase migration
   app.post("/api/supabase/migrate", async (_req, res) => {
     try {
       log("Starting Supabase migration...", "supabase-admin");
-      const success = await migrateToSupabase();
+      await migrateToSupabase();
       
-      if (success) {
-        log("Supabase migration successful", "supabase-admin");
-        res.status(200).json({ message: "Migration successful" });
-      } else {
-        log("Supabase migration failed", "supabase-admin");
-        res.status(500).json({ message: "Migration failed. Check server logs for details." });
-      }
+      // After migration, initialize Supabase storage and set it as the provider
+      await supabaseStorage.initialize();
+      setStorage(supabaseStorage);
+      
+      log("Supabase migration completed successfully", "supabase-admin");
+      log("Switched to Supabase storage", "supabase-admin");
+      
+      res.status(200).json({ 
+        success: true, 
+        message: "Migration successful and switched to Supabase storage" 
+      });
     } catch (error) {
       log(`Migration error: ${error}`, "supabase-admin");
-      res.status(500).json({ message: "Migration failed with an error" });
+      res.status(500).json({ 
+        success: false,
+        message: "Migration failed with an error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

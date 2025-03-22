@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, setStorage } from "./storage";
+import { supabaseStorage } from "./supabaseStorage";
 import { insertProductSchema, insertOrderSchema } from "@shared/schema";
 import { z } from "zod";
+import { migrateToSupabase } from "./setupSupabase";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
@@ -136,6 +138,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
+  // Supabase migration
+  app.post("/api/supabase/migrate", async (_req, res) => {
+    try {
+      // Migrate data to Supabase
+      await migrateToSupabase();
+      
+      // Change storage implementation to use Supabase
+      await supabaseStorage.initialize();
+      setStorage(supabaseStorage);
+      
+      res.status(200).json({ success: true, message: "Migration to Supabase completed successfully" });
+    } catch (error) {
+      console.error("Migration error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to migrate to Supabase", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 

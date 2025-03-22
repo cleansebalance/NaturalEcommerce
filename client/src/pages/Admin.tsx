@@ -16,10 +16,11 @@ export default function Admin() {
       setMigrationStatus('loading');
       setMessage('Migration in progress. This may take a few minutes...');
       
-      const response = await apiRequest({
-        method: 'POST',
-        url: '/api/supabase/migrate',
-      });
+      const response = await apiRequest(
+        'POST',
+        '/api/supabase/migrate',
+        {}
+      );
       
       setMigrationStatus('success');
       setMessage('Migration completed successfully! Your product catalog is now stored in Supabase.');
