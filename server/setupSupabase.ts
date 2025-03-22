@@ -6,12 +6,15 @@ export async function migrateToSupabase() {
   log('Starting Supabase database setup...', 'supabase-migration');
 
   try {
-    // Create tables using query builder
-    await supabase.from('categories').select('id').limit(1).then(async ({ error }) => {
-      if (error?.message.includes('does not exist')) {
-        // Create tables using raw query
-        await supabase.rpc('create_tables', {
-          sql_commands: `
+    // Create tables using direct SQL execution
+    const { error: tableError } = await supabase.from('categories').select('*').limit(1);
+    
+    if (tableError?.message.includes('does not exist')) {
+      const { error: createError } = await supabase.from('categories').select('*').limit(1).catch(async () => {
+        return await supabase
+          .from('_sql')
+          .rpc('raw_sql', {
+            query: `
             CREATE TABLE IF NOT EXISTS categories (
               id SERIAL PRIMARY KEY,
               name TEXT NOT NULL,
@@ -64,9 +67,13 @@ export async function migrateToSupabase() {
               created_at TIMESTAMP NOT NULL DEFAULT NOW()
             );
           `
-        });
+          })
+      });
+      
+      if (createError) {
+        throw new Error(`Failed to create tables: ${createError.message}`);
       }
-    });
+    }
 
     // Migrate data from MemStorage
     log('Migrating data from MemStorage to Supabase...', 'supabase-migration');
