@@ -1,23 +1,24 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import NotFound from "@/pages/not-found";
+import { CartProvider } from "@/context/CartContext";
+import { ProductsProvider } from "@/context/ProductsContext";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import CartDrawer from "@/components/cart/CartDrawer";
 import Home from "@/pages/Home";
-import Products from "@/pages/Products";
+import Shop from "@/pages/Shop";
 import ProductDetail from "@/pages/ProductDetail";
-import Cart from "@/pages/Cart";
 import Checkout from "@/pages/Checkout";
-import { MainLayout } from "@/layouts/MainLayout";
-import { CartProvider } from "@/contexts/CartContext";
+import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/products" component={Products} />
-      <Route path="/products/:id" component={ProductDetail} />
-      <Route path="/cart" component={Cart} />
+      <Route path="/shop" component={Shop} />
+      <Route path="/product/:id" component={ProductDetail} />
       <Route path="/checkout" component={Checkout} />
       <Route component={NotFound} />
     </Switch>
@@ -27,12 +28,19 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <CartProvider>
-        <MainLayout>
-          <Router />
-        </MainLayout>
-        <Toaster />
-      </CartProvider>
+      <ProductsProvider>
+        <CartProvider>
+          <div className="flex flex-col min-h-screen">
+            <Navbar />
+            <main className="flex-grow">
+              <Router />
+            </main>
+            <Footer />
+            <CartDrawer />
+          </div>
+          <Toaster />
+        </CartProvider>
+      </ProductsProvider>
     </QueryClientProvider>
   );
 }
