@@ -61,9 +61,20 @@ export async function migrateToSupabase() {
       );
     `;
 
-    // Execute SQL directly
-    const { error: createError } = await supabase.rpc('exec_sql', { sql: createTables });
-    if (createError) throw createError;
+    // Execute each create table statement separately
+    const tableQueries = createTables.split(';').filter(query => query.trim());
+    
+    for (const query of tableQueries) {
+      const { error } = await supabase.from('_supabase_migrations').select('*').limit(1);
+      if (error?.message?.includes('does not exist')) {
+        const { error: createError } = await supabase.rpc('pgcrypto', { sql: query.trim() });
+        if (createError) {
+          // If pgcrypto RPC not available, try direct query
+          const { error: directError } = await supabase.from('_raw').rpc('sql', { query: query.trim() });
+          if (directError) throw directError;
+        }
+      }
+    }
 
     // Migrate data from MemStorage
     log('Migrating data from MemStorage to Supabase...', 'supabase-migration');
