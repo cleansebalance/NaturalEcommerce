@@ -11,12 +11,16 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen">
-      <Announcement />
-      <Header />
-      <main className="flex-grow">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background">
+        <Announcement />
+        <Header />
+      </div>
+      <main className="flex-grow mt-[120px] mb-[280px]">
         {children}
       </main>
-      <Footer />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background">
+        <Footer />
+      </div>
       <ShoppingCart />
     </div>
   );
