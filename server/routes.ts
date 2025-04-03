@@ -6,6 +6,7 @@ import { insertProductSchema, insertOrderSchema } from "@shared/schema";
 import { z } from "zod";
 import { migrateToSupabase } from "./setupSupabase";
 import { setupAuth } from "./auth";
+import { createPaymentIntent, calculateOrderTotal } from "./stripe";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
@@ -161,6 +162,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: "Failed to migrate to Supabase", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // Stripe Payment Routes
+  
+  // Create a payment intent
+  app.post("/api/payment/create-intent", async (req, res) => {
+    try {
+      // Verify if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const { cartItems } = req.body;
+      
+      if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
+        return res.status(400).json({ message: "Invalid cart items" });
+      }
+      
+      // Calculate total amount from cart items
+      const amount = calculateOrderTotal(cartItems);
+      
+      if (amount <= 0) {
+        return res.status(400).json({ message: "Invalid order amount" });
+      }
+      
+      // Create metadata with user information and cart summary
+      const metadata: Record<string, string> = {
+        userId: String(req.user.id),
+        itemCount: String(cartItems.length),
+      };
+      
+      // Create payment intent
+      const paymentIntent = await createPaymentIntent(amount, 'usd', metadata);
+      
+      res.status(200).json({
+        clientSecret: paymentIntent.client_secret,
+        amount: amount / 100, // Convert back to dollars for the frontend
+      });
+    } catch (error) {
+      console.error("Payment intent error:", error);
+      res.status(500).json({ 
+        message: "Failed to create payment intent", 
         error: error instanceof Error ? error.message : String(error) 
       });
     }

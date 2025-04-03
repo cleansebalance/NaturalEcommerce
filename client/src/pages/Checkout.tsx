@@ -1,367 +1,227 @@
-import { useState } from 'react';
-import { useCart } from '@/context/CartContext';
-import { useLocation } from 'wouter';
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from '@stripe/react-stripe-js';
+import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../hooks/use-auth';
+import { apiRequest } from '../lib/queryClient';
+import { useToast } from '../hooks/use-toast';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Link } from 'wouter';
+import { formatPrice } from '../lib/utils';
 
-const formSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters."),
-  lastName: z.string().min(2, "Last name must be at least 2 characters."),
-  email: z.string().email("Invalid email address."),
-  address: z.string().min(5, "Address must be at least 5 characters."),
-  city: z.string().min(2, "City must be at least 2 characters."),
-  zipCode: z.string().min(4, "Zip code must be at least 4 characters."),
-  country: z.string().min(2, "Country must be at least 2 characters."),
-  cardName: z.string().min(2, "Name on card must be at least 2 characters."),
-  cardNumber: z.string().refine(val => /^\d{16}$/.test(val), "Card number must be 16 digits."),
-  expiryDate: z.string().refine(val => /^\d{2}\/\d{2}$/.test(val), "Expiry date must be in MM/YY format."),
-  cvv: z.string().refine(val => /^\d{3,4}$/.test(val), "CVV must be 3 or 4 digits."),
-});
+// Load Stripe outside of component render to avoid recreating instance on every render
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const Checkout = () => {
-  const { state, subtotal, clearCart } = useCart();
-  const [, setLocation] = useLocation();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+// Payment form component (inside Stripe Elements)
+const CheckoutForm = ({ amount }: { amount: number }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const stripe = useStripe();
+  const elements = useElements();
   const { toast } = useToast();
 
-  // Calculate tax and shipping
-  const tax = subtotal * 0.05;
-  const shipping = subtotal > 100 ? 0 : 10;
-  const total = subtotal + tax + shipping;
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  // Initialize form
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      address: "",
-      city: "",
-      zipCode: "",
-      country: "",
-      cardName: "",
-      cardNumber: "",
-      expiryDate: "",
-      cvv: "",
-    },
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (state.items.length === 0) {
-      toast({
-        title: "Cart is empty",
-        description: "Please add items to your cart before checking out.",
-        variant: "destructive",
-      });
+    if (!stripe || !elements) {
+      // Stripe.js hasn't loaded yet
       return;
     }
 
-    setIsSubmitting(true);
+    setIsProcessing(true);
+    setPaymentStatus('idle');
+    setErrorMessage(null);
 
-    try {
-      // Simulate creating an order
-      // In a real application, this would call the API to create the order
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+    // Confirm payment
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/order-confirmation`,
+      },
+      redirect: 'if_required',
+    });
+
+    if (error) {
+      setIsProcessing(false);
+      setPaymentStatus('error');
+      setErrorMessage(error.message || 'An error occurred during payment processing');
       toast({
-        title: "Order placed successfully!",
-        description: "Thank you for your purchase.",
+        title: 'Payment failed',
+        description: error.message || 'An error occurred during payment processing',
+        variant: 'destructive',
       });
-      
-      clearCart();
-      setLocation('/');
-    } catch (error) {
+    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+      setIsProcessing(false);
+      setPaymentStatus('success');
       toast({
-        title: "Failed to place order",
-        description: "Please try again later.",
-        variant: "destructive",
+        title: 'Payment successful!',
+        description: 'Thank you for your purchase.',
       });
-    } finally {
-      setIsSubmitting(false);
     }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="w-full max-w-lg mx-auto">
+      <div className="mb-6">
+        <PaymentElement />
+      </div>
+
+      {paymentStatus === 'error' && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-center">
+          <XCircle className="h-5 w-5 mr-2" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {paymentStatus === 'success' && (
+        <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
+          <CheckCircle className="h-5 w-5 mr-2" />
+          <span>Payment successful! Thank you for your purchase.</span>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mt-8">
+        <span className="text-lg font-semibold">Total: {formatPrice(amount)}</span>
+        
+        <Button
+          type="submit"
+          disabled={!stripe || isProcessing}
+          className="bg-primary hover:bg-primary/90 text-white"
+        >
+          {isProcessing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            'Complete Payment'
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+// Main Checkout page
+export default function Checkout() {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [amount, setAmount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { cartItems, cartTotal, isLoading: isCartLoading } = useCart();
+  const { toast } = useToast();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      window.location.href = '/auth';
+    }
+  }, [user, isAuthLoading]);
+
+  // Redirect to cart if no cart items
+  useEffect(() => {
+    if (cartItems.length === 0 && !isCartLoading) {
+      window.location.href = '/cart';
+    }
+  }, [cartItems, isCartLoading]);
+
+  // Create payment intent when component mounts
+  useEffect(() => {
+    const createIntent = async () => {
+      if (!user || cartItems.length === 0) return;
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await apiRequest('POST', '/api/payment/create-intent', {
+          cartItems: cartItems,
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to create payment intent');
+        }
+        
+        setClientSecret(data.clientSecret);
+        setAmount(data.amount);
+      } catch (err) {
+        console.error('Payment intent error:', err);
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : 'Failed to initialize payment',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    createIntent();
+  }, [user, cartItems, toast]);
+
+  if (isAuthLoading || (user && isLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  // If cart is empty, redirect to shop
-  if (state.items.length === 0) {
+  if (error) {
     return (
-      <div className="min-h-screen pt-32 pb-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-3xl font-display font-bold text-dark mb-6">Your Cart is Empty</h1>
-          <p className="text-lg text-dark opacity-70 mb-8">
-            Add some products to your cart before proceeding to checkout.
-          </p>
-          <Button 
-            className="bg-primary hover:bg-primary/90 text-white px-8 py-6 rounded-full text-lg"
-            onClick={() => setLocation('/shop')}
-          >
-            Browse Products
-          </Button>
+      <div className="min-h-screen max-w-4xl mx-auto px-4 py-16">
+        <div className="bg-red-50 p-6 rounded-lg text-center">
+          <XCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Payment Error</h2>
+          <p className="text-gray-700 mb-6">{error}</p>
+          <div className="flex justify-center gap-4">
+            <Link href="/cart">
+              <Button variant="outline">Return to Cart</Button>
+            </Link>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pt-32 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-display font-bold text-dark mb-10 text-center">Checkout</h1>
-        
-        <div className="md:flex md:gap-10">
-          {/* Checkout Form */}
-          <div className="md:w-2/3 mb-10 md:mb-0">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <div className="bg-light p-8 rounded-xl">
-                  <h2 className="text-xl font-display font-bold mb-6">Shipping Information</h2>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="mt-6">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email Address</FormLabel>
-                          <FormControl>
-                            <Input placeholder="you@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="mt-6">
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Street Address</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="123 Main St, Apt 4B" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input placeholder="New York" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="zipCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Zip Code</FormLabel>
-                          <FormControl>
-                            <Input placeholder="10001" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="country"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Country</FormLabel>
-                          <FormControl>
-                            <Input placeholder="United States" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                
-                <div className="bg-light p-8 rounded-xl">
-                  <h2 className="text-xl font-display font-bold mb-6">Payment Information</h2>
-                  
-                  <FormField
-                    control={form.control}
-                    name="cardName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name on Card</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="mt-6">
-                    <FormField
-                      control={form.control}
-                      name="cardNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Card Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="1234 5678 9012 3456" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
-                    <FormField
-                      control={form.control}
-                      name="expiryDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Expiry Date (MM/YY)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="12/25" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="cvv"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>CVV</FormLabel>
-                          <FormControl>
-                            <Input placeholder="123" type="password" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full bg-primary hover:bg-primary/90 text-white px-8 py-6 rounded-full text-lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Processing Order...' : `Complete Order • $${total.toFixed(2)}`}
-                </Button>
-              </form>
-            </Form>
-          </div>
-          
-          {/* Order Summary */}
-          <div className="md:w-1/3">
-            <div className="bg-light p-8 rounded-xl sticky top-32">
-              <h2 className="text-xl font-display font-bold mb-6">Order Summary</h2>
-              
-              <div className="space-y-4 mb-6">
-                {state.items.map(item => (
-                  <div key={item.product.id} className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-md overflow-hidden border border-neutral flex-shrink-0">
-                      <img 
-                        src={item.product.imageUrl} 
-                        alt={item.product.name} 
-                        className="w-full h-full object-cover" 
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium">{item.product.name}</h3>
-                      <p className="text-sm text-dark opacity-70">Qty: {item.quantity}</p>
-                    </div>
-                    <div className="font-medium">
-                      ${(item.product.price * item.quantity).toFixed(2)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <Separator className="mb-4" />
-              
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax (5%)</span>
-                  <span>${tax.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping</span>
-                  <span>
-                    {shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
-                  </span>
-                </div>
-              </div>
-              
-              <Separator className="my-4" />
-              
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span>${total.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen max-w-4xl mx-auto px-4 py-16">
+      <h1 className="text-3xl font-bold text-center mb-12">Checkout</h1>
+      
+      {clientSecret ? (
+        <div className="bg-white rounded-lg shadow-md p-6 md:p-8">
+          <Elements
+            stripe={stripePromise}
+            options={{ clientSecret, appearance: { theme: 'stripe' } }}
+          >
+            <CheckoutForm amount={amount} />
+          </Elements>
         </div>
+      ) : (
+        <div className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      <div className="mt-8 text-center">
+        <Link href="/cart">
+          <Button variant="link" className="text-gray-600">
+            Return to Cart
+          </Button>
+        </Link>
       </div>
     </div>
   );
-};
-
-export default Checkout;
+}

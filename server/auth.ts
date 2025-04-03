@@ -7,11 +7,11 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SchemaUser } from "@shared/schema";
 import { db } from "./db";
-import * as memorystore from "memorystore";
-import * as connectPgSimple from "connect-pg-simple";
+import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import { log } from "./vite";
 
-const MemoryStore = memorystore(session);
+const MemoryStore = createMemoryStore(session);
 const PgStore = connectPgSimple(session);
 
 declare global {
