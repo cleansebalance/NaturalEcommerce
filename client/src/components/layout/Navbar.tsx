@@ -52,7 +52,7 @@ const Navbar = () => {
               <div className="ml-10 flex items-center space-x-8">
                 <Link href="/" className="font-medium text-dark hover:text-primary transition-colors duration-300">Home</Link>
                 <Link href="/shop" className="font-medium text-dark hover:text-primary transition-colors duration-300">Shop</Link>
-                <Link href="/shop" className="font-medium text-dark hover:text-primary transition-colors duration-300">Collections</Link>
+                <Link href="/shop?view=collections" className="font-medium text-dark hover:text-primary transition-colors duration-300">Collections</Link>
                 <Link href="/about" className="font-medium text-dark hover:text-primary transition-colors duration-300">About</Link>
                 <Link href="/contact" className="font-medium text-dark hover:text-primary transition-colors duration-300">Contact</Link>
               </div>
@@ -111,7 +111,7 @@ const Navbar = () => {
             >
               Shop
             </Link>
-            <Link href="/shop" 
+            <Link href="/shop?view=collections" 
               className="block font-medium text-dark hover:text-primary transition-colors duration-300"
               onClick={() => setIsMobileMenuOpen(false)}
             >
