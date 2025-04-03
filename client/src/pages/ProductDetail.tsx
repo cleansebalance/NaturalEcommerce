@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useProducts } from '@/context/ProductsContext';
-import { useCart } from '@/context/CartContext';
+import { useCart } from '@/contexts/CartContext'; // Fixed path to use the correct CartContext
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -10,7 +10,7 @@ const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { getProductById } = useProducts();
-  const { addItem } = useCart();
+  const cart = useCart(); // Get the full cart context
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -33,9 +33,10 @@ const ProductDetail = () => {
     }
   }, [isLoading, product, setLocation]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (product) {
-      addItem(product, quantity);
+      // The CartContext from contexts/CartContext expects a productId (number) instead of a product object
+      await cart.addToCart(product.id, quantity);
     }
   };
 
