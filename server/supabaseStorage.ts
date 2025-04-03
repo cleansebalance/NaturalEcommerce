@@ -18,7 +18,34 @@ export class SupabaseStorage implements IStorage {
   // Helper method to ensure tables exist
   private async ensureTablesExist() {
     try {
-      // Check if categories table has data using direct PostgreSQL
+      // First, let's verify that the tables are accessible through Supabase API
+      let tablesExist = true;
+      
+      // Try to access each critical table through Supabase
+      const tables = ['categories', 'products', 'testimonials'];
+      for (const table of tables) {
+        const { error } = await supabase.from(table).select('id').limit(1);
+        
+        if (error) {
+          log(`Supabase table verification failed for ${table}: ${error.message}`, "supabase");
+          tablesExist = false;
+          break;
+        }
+      }
+      
+      // If tables don't exist or aren't accessible through Supabase API
+      if (!tablesExist) {
+        log("Tables not accessible through Supabase, attempting to migrate...", "supabase");
+        // Import here to avoid circular dependency
+        const { migrateToSupabase } = await import('./setupSupabase');
+        const migrationSuccess = await migrateToSupabase();
+        
+        if (!migrationSuccess) {
+          throw new Error("Migration failed");
+        }
+      }
+      
+      // Now check if we have data using direct PostgreSQL to avoid Supabase API issues
       const client = await pool.connect();
       try {
         // Check if any categories exist
@@ -32,12 +59,22 @@ export class SupabaseStorage implements IStorage {
           log("Database tables already initialized with data", "supabase");
         }
       } catch (error) {
-        // Table might not exist yet
+        // Table might exist but be empty
         log(`Database check error: ${error}`, "supabase");
         log("Attempting to initialize sample data", "supabase");
         await this.initializeSampleData();
       } finally {
         client.release();
+      }
+      
+      // Final verification that tables are accessible through Supabase
+      for (const table of tables) {
+        const { error } = await supabase.from(table).select('id').limit(1);
+        
+        if (error) {
+          log(`Final Supabase verification still failed for ${table}: ${error.message}`, "supabase");
+          log("Using direct PostgreSQL fallback for all operations", "supabase");
+        }
       }
     } catch (error) {
       log(`Database initialization error: ${error}`, "supabase");
