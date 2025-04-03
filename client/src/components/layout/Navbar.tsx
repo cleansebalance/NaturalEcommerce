@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { useAuth } from '../../hooks/use-auth';
-import { UserProfileDrawer } from '../../components/UserProfileDrawer';
+import { useAuth } from '@/hooks/use-auth';
+import { useCart } from '@/contexts/CartContext';
+import { UserProfileDrawer } from '@/components/UserProfileDrawer';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const { user } = useAuth();
+  const { cartCount, setIsCartOpen } = useCart();
   const [, setLocation] = useLocation();
-  
-  // Simplified cart state
-  const cartState = {
-    cartCount: 0, 
-    setIsCartOpen: (_: boolean) => {
-      console.log("Cart toggle clicked");
-      // For now, this is a no-op
-    } 
-  };
 
   // Handle scroll effect
   useEffect(() => {
@@ -82,12 +75,12 @@ const Navbar = () => {
               </button>
               <button 
                 className="p-2 rounded-full hover:bg-light relative transition-all duration-300"
-                onClick={() => cartState.setIsCartOpen(true)}
+                onClick={() => setIsCartOpen(true)}
               >
                 <i className="fas fa-shopping-bag text-dark"></i>
-                {cartState.cartCount > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-accent text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                    {cartState.cartCount}
+                    {cartCount}
                   </span>
                 )}
               </button>

@@ -1,28 +1,24 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Account() {
   const [, setLocation] = useLocation();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Redirect if not authenticated
-  if (!isAuthenticated) {
-    setLocation('/login');
+  if (!user) {
+    setLocation('/auth');
     return null;
   }
 
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
-      logout();
-      toast({
-        title: 'Logged out',
-        description: 'You have been successfully logged out',
-      });
+      await logoutMutation.mutateAsync();
       setLocation('/');
     } catch (error) {
       console.error(error);

@@ -1,31 +1,27 @@
-import { useCart } from '@/context/CartContext';
-import { CartItem as CartItemType } from '@/types';
+import { useCart, CartItemWithProduct } from '@/contexts/CartContext';
 
 interface CartItemProps {
-  item: {
-    product: CartItemType['product'];
-    quantity: number;
-  };
+  item: CartItemWithProduct;
 }
 
 const CartItem = ({ item }: CartItemProps) => {
-  const { removeItem, updateQuantity } = useCart();
-  const { product, quantity } = item;
+  const { removeFromCart, updateCartItem, isLoading } = useCart();
+  const { id, quantity, product } = item;
 
   const handleRemoveItem = () => {
-    removeItem(product.id);
+    removeFromCart(id);
   };
 
   const decreaseQuantity = () => {
     if (quantity > 1) {
-      updateQuantity(product.id, quantity - 1);
+      updateCartItem(id, quantity - 1);
     } else {
-      removeItem(product.id);
+      removeFromCart(id);
     }
   };
 
   const increaseQuantity = () => {
-    updateQuantity(product.id, quantity + 1);
+    updateCartItem(id, quantity + 1);
   };
 
   return (
@@ -53,6 +49,7 @@ const CartItem = ({ item }: CartItemProps) => {
               className="p-1 hover:bg-light rounded-full"
               onClick={decreaseQuantity}
               aria-label="Decrease quantity"
+              disabled={isLoading}
             >
               <i className="fas fa-minus text-xs"></i>
             </button>
@@ -61,6 +58,7 @@ const CartItem = ({ item }: CartItemProps) => {
               className="p-1 hover:bg-light rounded-full"
               onClick={increaseQuantity}
               aria-label="Increase quantity"
+              disabled={isLoading}
             >
               <i className="fas fa-plus text-xs"></i>
             </button>
@@ -71,8 +69,9 @@ const CartItem = ({ item }: CartItemProps) => {
               type="button" 
               className="font-medium text-primary hover:text-primary/80"
               onClick={handleRemoveItem}
+              disabled={isLoading}
             >
-              Remove
+              {isLoading ? 'Removing...' : 'Remove'}
             </button>
           </div>
         </div>
