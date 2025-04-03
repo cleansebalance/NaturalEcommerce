@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, setStorage } from "./storage";
 import { supabaseStorage } from "./supabaseStorage";
-import { insertProductSchema, insertOrderSchema } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, insertCartItemSchema } from "@shared/schema";
 import { z } from "zod";
 import { migrateToSupabase } from "./setupSupabase";
 import { setupAuth } from "./auth";
@@ -114,6 +114,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(testimonials);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch testimonials" });
+    }
+  });
+
+  // Cart
+  app.get("/api/cart", async (req, res) => {
+    try {
+      // Get userId from query param or from authenticated user
+      const userId = req.isAuthenticated() 
+        ? req.user.id 
+        : req.query.userId 
+          ? parseInt(req.query.userId as string) 
+          : 1; // Default user ID for demo
+      
+      // Fetch cart items with product details
+      const cartItems = await storage.getCartItems(userId);
+      res.json(cartItems);
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      res.status(500).json({ message: "Failed to fetch cart items" });
+    }
+  });
+
+  app.post("/api/cart", async (req, res) => {
+    try {
+      // Get userId from authenticated user or query param
+      const userId = req.isAuthenticated() ? req.user.id : req.body.userId;
+      
+      if (!userId || !req.body.productId || !req.body.quantity) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Check if product exists
+      const product = await storage.getProductById(req.body.productId);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Prepare cart item data
+      const cartItemData = insertCartItemSchema.parse({
+        userId,
+        productId: req.body.productId,
+        quantity: req.body.quantity
+      });
+
+      // Add to cart
+      const cartItem = await storage.addToCart(cartItemData);
+      res.status(201).json(cartItem);
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid cart data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to add to cart" });
+    }
+  });
+
+  app.put("/api/cart/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { quantity } = req.body;
+      
+      if (!quantity || quantity < 1) {
+        return res.status(400).json({ message: "Invalid quantity" });
+      }
+
+      // Update cart item
+      const updatedItem = await storage.updateCartItem(id, quantity);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating cart item:", error);
+      res.status(500).json({ message: "Failed to update cart item" });
+    }
+  });
+
+  app.delete("/api/cart/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.removeCartItem(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing cart item:", error);
+      res.status(500).json({ message: "Failed to remove cart item" });
+    }
+  });
+
+  app.delete("/api/cart", async (req, res) => {
+    try {
+      // Get userId from authenticated user or query param
+      const userId = req.isAuthenticated() 
+        ? req.user.id 
+        : req.query.userId 
+          ? parseInt(req.query.userId as string) 
+          : null;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      
+      await storage.clearCart(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({ message: "Failed to clear cart" });
     }
   });
 

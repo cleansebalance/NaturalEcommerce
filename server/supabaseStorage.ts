@@ -1,7 +1,7 @@
 import {
-  categories, products, reviews, testimonials, orders, users,
-  type Category, type Product, type Review, type Testimonial, type Order, type User,
-  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder, type InsertUser
+  categories, products, reviews, testimonials, orders, users, cartItems,
+  type Category, type Product, type Review, type Testimonial, type Order, type User, type CartItem, type CartItemWithProduct,
+  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder, type InsertUser, type InsertCartItem
 } from "@shared/schema";
 import { IStorage } from "./storage";
 import { supabase } from "./supabase";
@@ -464,6 +464,121 @@ export class SupabaseStorage implements IStorage {
     }
     
     return data;
+  }
+
+  // Cart Items
+  async getCartItems(userId: number): Promise<CartItemWithProduct[]> {
+    // First get the cart items
+    const { data: cartItems, error: cartError } = await supabase
+      .from('cart_items')
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (cartError) {
+      log(`Error fetching cart items: ${cartError.message}`, "supabase");
+      throw cartError;
+    }
+    
+    if (!cartItems || cartItems.length === 0) {
+      return [];
+    }
+    
+    // Then fetch the products and join them
+    const result: CartItemWithProduct[] = [];
+    
+    for (const item of cartItems) {
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', item.productId)
+        .single();
+      
+      if (productError) {
+        log(`Error fetching product for cart item: ${productError.message}`, "supabase");
+        continue; // Skip this item if product not found
+      }
+      
+      result.push({
+        ...item,
+        product
+      });
+    }
+    
+    return result;
+  }
+
+  async addToCart(cartItem: InsertCartItem): Promise<CartItem> {
+    // Check if item already exists in cart
+    const { data: existingItems, error: findError } = await supabase
+      .from('cart_items')
+      .select('*')
+      .eq('user_id', cartItem.userId)
+      .eq('product_id', cartItem.productId);
+    
+    if (findError) {
+      log(`Error checking existing cart item: ${findError.message}`, "supabase");
+      throw findError;
+    }
+    
+    // If item exists, update its quantity
+    if (existingItems && existingItems.length > 0) {
+      const existingItem = existingItems[0];
+      return this.updateCartItem(existingItem.id, existingItem.quantity + cartItem.quantity);
+    }
+    
+    // Otherwise, insert new cart item
+    const { data, error } = await supabase
+      .from('cart_items')
+      .insert(cartItem)
+      .select()
+      .single();
+    
+    if (error) {
+      log(`Error adding to cart: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data;
+  }
+
+  async updateCartItem(id: number, quantity: number): Promise<CartItem> {
+    const { data, error } = await supabase
+      .from('cart_items')
+      .update({ quantity })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      log(`Error updating cart item: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data;
+  }
+
+  async removeCartItem(id: number): Promise<void> {
+    const { error } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      log(`Error removing cart item: ${error.message}`, "supabase");
+      throw error;
+    }
+  }
+
+  async clearCart(userId: number): Promise<void> {
+    const { error } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (error) {
+      log(`Error clearing cart: ${error.message}`, "supabase");
+      throw error;
+    }
   }
 }
 

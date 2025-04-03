@@ -55,6 +55,14 @@ export const testimonials = pgTable("testimonials", {
   isVerified: boolean("is_verified").notNull().default(true),
 });
 
+export const cartItems = pgTable("cart_items", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  productId: integer("product_id").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+});
+
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -71,6 +79,7 @@ export const insertCategorySchema = createInsertSchema(categories);
 export const insertProductSchema = createInsertSchema(products);
 export const insertReviewSchema = createInsertSchema(reviews);
 export const insertTestimonialSchema = createInsertSchema(testimonials);
+export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true, addedAt: true });
 export const insertOrderSchema = createInsertSchema(orders);
 
 // Types
@@ -79,6 +88,7 @@ export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type InsertTestimonial = z.infer<typeof insertTestimonialSchema>;
+export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 
 export type User = typeof users.$inferSelect;
@@ -86,4 +96,10 @@ export type Category = typeof categories.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
+export type CartItem = typeof cartItems.$inferSelect;
 export type Order = typeof orders.$inferSelect;
+
+// Custom type for cart items with product details
+export type CartItemWithProduct = CartItem & {
+  product: Product;
+};

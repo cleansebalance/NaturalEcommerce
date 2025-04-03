@@ -1,7 +1,7 @@
 import {
-  categories, products, reviews, testimonials, orders, users,
-  type Category, type Product, type Review, type Testimonial, type Order, type User,
-  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder, type InsertUser
+  categories, products, reviews, testimonials, orders, users, cartItems,
+  type Category, type Product, type Review, type Testimonial, type Order, type User, type CartItem, type CartItemWithProduct,
+  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder, type InsertUser, type InsertCartItem
 } from "@shared/schema";
 import { log } from "./vite";
 
@@ -28,6 +28,13 @@ export interface IStorage {
   getReviewsByProductId(productId: number): Promise<Review[]>;
   createReview(review: InsertReview): Promise<Review>;
   
+  // Cart Items
+  getCartItems(userId: number): Promise<CartItemWithProduct[]>;
+  addToCart(cartItem: InsertCartItem): Promise<CartItem>;
+  updateCartItem(id: number, quantity: number): Promise<CartItem>;
+  removeCartItem(id: number): Promise<void>;
+  clearCart(userId: number): Promise<void>;
+  
   // Testimonials
   getAllTestimonials(): Promise<Testimonial[]>;
   createTestimonial(testimonial: InsertTestimonial): Promise<Testimonial>;
@@ -45,6 +52,7 @@ export class MemStorage implements IStorage {
   private testimonials: Map<number, Testimonial>;
   private orders: Map<number, Order>;
   private users: Map<number, User>;
+  private cartItems: Map<number, CartItem>;
   
   private categoryId: number;
   private productId: number;
@@ -52,6 +60,7 @@ export class MemStorage implements IStorage {
   private testimonialId: number;
   private orderId: number;
   private userId: number;
+  private cartItemId: number;
   
   constructor() {
     this.categories = new Map();
@@ -60,6 +69,7 @@ export class MemStorage implements IStorage {
     this.testimonials = new Map();
     this.orders = new Map();
     this.users = new Map();
+    this.cartItems = new Map();
     
     this.categoryId = 1;
     this.productId = 1;
@@ -67,6 +77,7 @@ export class MemStorage implements IStorage {
     this.testimonialId = 1;
     this.orderId = 1;
     this.userId = 1;
+    this.cartItemId = 1;
     
     this.initializeData();
   }
@@ -292,6 +303,78 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, newUser);
     return newUser;
+  }
+
+  // Cart Items
+  async getCartItems(userId: number): Promise<CartItemWithProduct[]> {
+    const items = Array.from(this.cartItems.values())
+      .filter(item => item.userId === userId);
+    
+    return Promise.all(
+      items.map(async (item) => {
+        const product = await this.getProductById(item.productId);
+        if (!product) {
+          throw new Error(`Product with ID ${item.productId} not found`);
+        }
+        return {
+          ...item,
+          product,
+        };
+      })
+    );
+  }
+
+  async addToCart(cartItem: InsertCartItem): Promise<CartItem> {
+    // Check if the same product already exists in the cart
+    const existingItem = Array.from(this.cartItems.values()).find(
+      item => item.userId === cartItem.userId && item.productId === cartItem.productId
+    );
+
+    if (existingItem) {
+      // Update the quantity of the existing item
+      return this.updateCartItem(existingItem.id, existingItem.quantity + cartItem.quantity);
+    }
+
+    // Add new item
+    const id = this.cartItemId++;
+    const newCartItem: CartItem = {
+      ...cartItem,
+      id,
+      addedAt: new Date(),
+    };
+    this.cartItems.set(id, newCartItem);
+    return newCartItem;
+  }
+
+  async updateCartItem(id: number, quantity: number): Promise<CartItem> {
+    const item = this.cartItems.get(id);
+    if (!item) {
+      throw new Error(`Cart item with ID ${id} not found`);
+    }
+
+    const updatedItem = {
+      ...item,
+      quantity,
+    };
+    this.cartItems.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async removeCartItem(id: number): Promise<void> {
+    if (!this.cartItems.has(id)) {
+      throw new Error(`Cart item with ID ${id} not found`);
+    }
+    this.cartItems.delete(id);
+  }
+
+  async clearCart(userId: number): Promise<void> {
+    const itemsToRemove = Array.from(this.cartItems.values())
+      .filter(item => item.userId === userId)
+      .map(item => item.id);
+    
+    for (const id of itemsToRemove) {
+      this.cartItems.delete(id);
+    }
   }
 }
 
