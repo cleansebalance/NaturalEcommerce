@@ -1,66 +1,69 @@
-import { useEffect } from 'react';
-import { CheckCircle, ShoppingBag, ArrowRight } from 'lucide-react';
-import { Link } from 'wouter';
-import { Button } from '../components/ui/button';
-import { useCart } from '../contexts/CartContext';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, ShoppingBag, Home } from 'lucide-react';
 
 export default function OrderConfirmation() {
-  const { clearCart } = useCart();
+  const [, setLocation] = useLocation();
+  const [orderNumber, setOrderNumber] = useState<string>('');
   
-  // Clear the cart when the confirmation page loads
   useEffect(() => {
-    clearCart();
-  }, [clearCart]);
+    // Generate a random order number for display purposes
+    const generateOrderNumber = () => {
+      const prefix = 'BC';
+      const randomNum = Math.floor(100000 + Math.random() * 900000);
+      const timestamp = new Date().getTime().toString().slice(-4);
+      return `${prefix}-${randomNum}-${timestamp}`;
+    };
+    
+    setOrderNumber(generateOrderNumber());
+  }, []);
 
   return (
-    <div className="min-h-screen max-w-4xl mx-auto px-4 py-16">
-      <div className="bg-white rounded-lg shadow-md p-6 md:p-8 text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle className="h-10 w-10 text-green-600" />
-        </div>
-        
-        <h1 className="text-3xl font-bold mb-4">Order Confirmed!</h1>
-        
-        <p className="text-gray-600 mb-8 max-w-md mx-auto">
-          Thank you for your purchase. Your order has been confirmed and will be shipped soon.
-        </p>
-        
-        <div className="border-t border-gray-200 pt-8 mt-8">
-          <h2 className="text-xl font-semibold mb-4">What's Next?</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <div className="bg-gray-50 p-6 rounded-lg text-left">
-              <ShoppingBag className="h-8 w-8 text-primary mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Track Your Order</h3>
-              <p className="text-gray-600 mb-4">
-                You'll receive an email confirmation with order details and tracking information.
-              </p>
-              <Button variant="link" className="px-0">
-                View Order Status <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="bg-gray-50 p-6 rounded-lg text-left">
-              <ShoppingBag className="h-8 w-8 text-primary mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Continue Shopping</h3>
-              <p className="text-gray-600 mb-4">
-                Discover more of our premium products for your skincare regimen.
-              </p>
-              <Link href="/shop">
-                <Button variant="link" className="px-0">
-                  Browse Products <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
+    <div className="container max-w-3xl mx-auto py-12 px-4">
+      <div className="bg-card p-8 rounded-lg shadow-sm text-center">
+        <div className="flex justify-center mb-6">
+          <div className="bg-primary/10 rounded-full p-4">
+            <CheckCircle className="h-12 w-12 text-primary" />
           </div>
         </div>
         
-        <div className="mt-12">
-          <Link href="/">
-            <Button className="bg-primary hover:bg-primary/90 text-white">
-              Return to Home
+        <h1 className="text-3xl font-bold mb-2">Order Confirmed!</h1>
+        <p className="text-muted-foreground mb-6">
+          Thank you for your purchase. Your order has been confirmed.
+        </p>
+        
+        {orderNumber && (
+          <div className="bg-secondary p-4 rounded-md mb-8 inline-block">
+            <p className="text-sm text-muted-foreground">Order Reference</p>
+            <p className="font-mono font-bold">{orderNumber}</p>
+          </div>
+        )}
+        
+        <div className="border-t pt-6 mt-6">
+          <p className="text-muted-foreground mb-6">
+            We've sent a confirmation email with your order details.
+            You will receive another email when your order ships.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              className="flex-1"
+              onClick={() => setLocation('/shop')}
+            >
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              Continue Shopping
             </Button>
-          </Link>
+            
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setLocation('/')}
+            >
+              <Home className="mr-2 h-4 w-4" />
+              Return Home
+            </Button>
+          </div>
         </div>
       </div>
     </div>

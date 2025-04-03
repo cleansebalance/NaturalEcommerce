@@ -339,23 +339,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
       
-      const { cartItems } = req.body;
+      const userId = req.user.id;
       
-      if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
-        return res.status(400).json({ message: "Invalid cart items" });
-      }
-      
-      // Calculate total amount from cart items
-      const amount = calculateOrderTotal(cartItems);
+      // Calculate total amount from user's cart
+      const amount = await calculateOrderTotal(userId);
       
       if (amount <= 0) {
-        return res.status(400).json({ message: "Invalid order amount" });
+        return res.status(400).json({ message: "Your cart is empty" });
       }
       
-      // Create metadata with user information and cart summary
+      // Create metadata with user information
       const metadata: Record<string, string> = {
-        userId: String(req.user.id),
-        itemCount: String(cartItems.length),
+        userId: String(userId),
       };
       
       // Create payment intent
@@ -363,7 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json({
         clientSecret: paymentIntent.client_secret,
-        amount: amount / 100, // Convert back to dollars for the frontend
+        amount: amount // Already in dollars
       });
     } catch (error) {
       console.error("Payment intent error:", error);

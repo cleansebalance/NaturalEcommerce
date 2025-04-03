@@ -1,20 +1,17 @@
 import Stripe from 'stripe';
-import { log } from './vite';
+import { storage } from './storage';
 
-// Validate Stripe keys
 if (!process.env.STRIPE_SECRET_KEY) {
-  log('Missing STRIPE_SECRET_KEY environment variable', 'stripe');
-  throw new Error('Missing STRIPE_SECRET_KEY environment variable');
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 
-// Initialize Stripe
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-03-31.basil' as const,
+  apiVersion: '2025-03-31.basil', // Using the current version supported by Stripe
 });
 
 /**
  * Create a payment intent for checkout
- * @param {number} amount - Amount in cents (e.g., 1000 for $10.00)
+ * @param {number} amount - Amount in dollars (e.g., 10.00 for $10.00)
  * @param {string} currency - Currency code (default: 'usd')
  * @param {Object} metadata - Additional metadata for the payment intent
  * @returns {Promise<Stripe.PaymentIntent>} - The created payment intent
@@ -22,57 +19,29 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 export async function createPaymentIntent(
   amount: number,
   currency = 'usd',
-  metadata: Record<string, string> = {}
+  metadata = {}
 ): Promise<Stripe.PaymentIntent> {
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount), // ensure it's a whole number
-      currency,
-      metadata,
-      automatic_payment_methods: {
-        enabled: true,
-      },
-    });
-    
-    log(`Created payment intent for ${amount / 100} ${currency.toUpperCase()}`, 'stripe');
-    return paymentIntent;
-  } catch (error) {
-    log(`Error creating payment intent: ${error instanceof Error ? error.message : String(error)}`, 'stripe');
-    throw error;
-  }
-}
-
-/**
- * Retrieve a payment intent by ID
- * @param {string} id - The payment intent ID
- * @returns {Promise<Stripe.PaymentIntent>} - The payment intent
- */
-export async function getPaymentIntent(id: string): Promise<Stripe.PaymentIntent> {
-  try {
-    return await stripe.paymentIntents.retrieve(id);
-  } catch (error) {
-    log(`Error retrieving payment intent: ${error instanceof Error ? error.message : String(error)}`, 'stripe');
-    throw error;
-  }
+  // Convert dollars to cents for Stripe
+  const amountInCents = Math.round(amount * 100);
+  
+  return await stripe.paymentIntents.create({
+    amount: amountInCents,
+    currency,
+    metadata,
+    automatic_payment_methods: {
+      enabled: true,
+    },
+  });
 }
 
 /**
  * Calculate order total from cart items
- * @param {Array} cartItems - Array of cart items with prices
- * @returns {number} - Total amount in cents
+ * @param {Array} cartItems - Array of cart items with product data
+ * @returns {number} - Total amount in dollars
  */
-export function calculateOrderTotal(cartItems: any[]): number {
-  if (!cartItems || !Array.isArray(cartItems)) {
-    return 0;
-  }
-  
-  // Sum up prices from cart items
-  const total = cartItems.reduce((sum, item) => {
-    const price = item.product?.price || 0;
-    const quantity = item.quantity || 1;
-    return sum + (price * quantity);
+export async function calculateOrderTotal(userId: number): Promise<number> {
+  const cartItems = await storage.getCartItems(userId);
+  return cartItems.reduce((total, item) => {
+    return total + (item.product.price * item.quantity);
   }, 0);
-  
-  // Convert to cents for Stripe
-  return Math.round(total * 100);
 }
