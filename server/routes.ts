@@ -160,13 +160,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Add to cart
       const cartItem = await storage.addToCart(cartItemData);
-      res.status(201).json(cartItem);
+      res.status(201).json({
+        success: true,
+        data: cartItem,
+        message: "Item added to cart"
+      });
     } catch (error) {
       console.error("Error adding to cart:", error);
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid cart data", errors: error.errors });
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid cart data", 
+          errors: error.errors 
+        });
       }
-      res.status(500).json({ message: "Failed to add to cart" });
+      
+      // Provide more detailed error messages for database errors
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const statusCode = errorMessage.includes("not found") ? 404 : 500;
+      
+      res.status(statusCode).json({ 
+        success: false,
+        message: "Failed to add to cart",
+        error: errorMessage
+      });
     }
   });
 
@@ -176,15 +193,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { quantity } = req.body;
       
       if (!quantity || quantity < 1) {
-        return res.status(400).json({ message: "Invalid quantity" });
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid quantity" 
+        });
       }
 
       // Update cart item
       const updatedItem = await storage.updateCartItem(id, quantity);
-      res.json(updatedItem);
+      res.json({
+        success: true,
+        data: updatedItem,
+        message: "Cart item updated"
+      });
     } catch (error) {
       console.error("Error updating cart item:", error);
-      res.status(500).json({ message: "Failed to update cart item" });
+      
+      // Provide more detailed error messages for database errors
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const statusCode = errorMessage.includes("not found") ? 404 : 500;
+      
+      res.status(statusCode).json({ 
+        success: false,
+        message: "Failed to update cart item",
+        error: errorMessage
+      });
     }
   });
 
@@ -192,10 +225,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       await storage.removeCartItem(id);
-      res.json({ success: true });
+      res.json({ 
+        success: true,
+        message: "Item removed from cart"
+      });
     } catch (error) {
       console.error("Error removing cart item:", error);
-      res.status(500).json({ message: "Failed to remove cart item" });
+      
+      // Provide more detailed error information
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const statusCode = errorMessage.includes("not found") ? 404 : 500;
+      
+      res.status(statusCode).json({ 
+        success: false,
+        message: "Failed to remove cart item",
+        error: errorMessage
+      });
     }
   });
 
@@ -209,14 +254,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : null;
       
       if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
+        return res.status(400).json({ 
+          success: false,
+          message: "User ID is required" 
+        });
       }
       
       await storage.clearCart(userId);
-      res.json({ success: true });
+      res.json({ 
+        success: true,
+        message: "Cart cleared successfully" 
+      });
     } catch (error) {
       console.error("Error clearing cart:", error);
-      res.status(500).json({ message: "Failed to clear cart" });
+      
+      // Provide more detailed error information
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to clear cart",
+        error: errorMessage
+      });
     }
   });
 

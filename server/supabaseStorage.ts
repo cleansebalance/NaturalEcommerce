@@ -327,22 +327,77 @@ export class SupabaseStorage implements IStorage {
   }
   
   async getProductById(id: number): Promise<Product | undefined> {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      // If not found, return undefined rather than throwing
-      if (error.code === 'PGRST116') {
-        return undefined;
+    try {
+      // First try Supabase
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        // If not found, return undefined
+        if (error.code === 'PGRST116') {
+          return undefined;
+        }
+        
+        // For other errors, try direct PostgreSQL as fallback
+        log(`Error fetching product by id: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const result = await client.query(`
+            SELECT 
+              id, name, tagline, price, original_price as "originalPrice", 
+              description, image_url as "imageUrl", rating, review_count as "reviewCount", 
+              category_id as "categoryId", is_featured as "isFeatured", 
+              is_best_seller as "isBestSeller", is_new_arrival as "isNewArrival"
+            FROM products
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length === 0) {
+            return undefined;
+          }
+          
+          return result.rows[0] as Product;
+        } finally {
+          client.release();
+        }
       }
-      log(`Error fetching product by id: ${error.message}`, "supabase");
-      throw error;
+      
+      return data;
+    } catch (error) {
+      log(`Critical error in getProductById: ${error}`, "supabase");
+      
+      // Last resort: still try direct PostgreSQL
+      try {
+        const client = await pool.connect();
+        try {
+          const result = await client.query(`
+            SELECT 
+              id, name, tagline, price, original_price as "originalPrice", 
+              description, image_url as "imageUrl", rating, review_count as "reviewCount", 
+              category_id as "categoryId", is_featured as "isFeatured", 
+              is_best_seller as "isBestSeller", is_new_arrival as "isNewArrival"
+            FROM products
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length === 0) {
+            return undefined;
+          }
+          
+          return result.rows[0] as Product;
+        } finally {
+          client.release();
+        }
+      } catch (pgError) {
+        log(`Failed to fallback to PostgreSQL: ${pgError}`, "supabase");
+        throw pgError;
+      }
     }
-    
-    return data;
   }
   
   async getProductsByCategory(categoryId: number): Promise<Product[]> {
@@ -750,27 +805,40 @@ export class SupabaseStorage implements IStorage {
       if (error) {
         log(`Error creating user via Supabase: ${error.message}`, "supabase");
         
-        // Fallback to direct PostgreSQL
+        // Fallback to direct PostgreSQL with explicit column mapping
         const client = await pool.connect();
         try {
           // Generate a new id
           const idResult = await client.query("SELECT COALESCE(MAX(id), 0) + 1 as new_id FROM users");
           const newId = idResult.rows[0].new_id;
           
-          // Format the query and values
-          const keys = Object.keys(user);
-          const values = Object.values(user);
-          const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-          const columns = keys.join(', ');
-          
-          // Insert the user
+          // Explicitly construct the query with named parameters
+          // to avoid type inconsistency issues
           const query = `
-            INSERT INTO users (id, ${columns}, created_at)
-            VALUES ($1, ${placeholders}, NOW())
+            INSERT INTO users (
+              id, 
+              username, 
+              email, 
+              password, 
+              name, 
+              role, 
+              created_at
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, NOW()
+            )
             RETURNING *
           `;
           
-          const result = await client.query(query, [newId, ...values]);
+          // Use explicit mapping of values to maintain type consistency
+          const result = await client.query(query, [
+            newId,
+            user.username,
+            user.email,
+            user.password,
+            user.name || '',
+            user.role || 'user'
+          ]);
           
           if (result.rows.length === 0) {
             throw new Error("Failed to create user with PostgreSQL");
@@ -785,7 +853,43 @@ export class SupabaseStorage implements IStorage {
       return data;
     } catch (error) {
       log(`Critical error in createUser: ${error}`, "supabase");
-      throw error;
+      
+      // For catastrophic errors, make one more attempt with simplified query
+      try {
+        const client = await pool.connect();
+        try {
+          // Generate a new id
+          const idResult = await client.query("SELECT COALESCE(MAX(id), 0) + 1 as new_id FROM users");
+          const newId = idResult.rows[0].new_id;
+          
+          // Use a much simpler query with hard-coded parameter positions
+          const query = `
+            INSERT INTO users (id, username, email, password, name, role, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            RETURNING *
+          `;
+          
+          const result = await client.query(query, [
+            newId,
+            user.username,
+            user.email,
+            user.password,
+            user.name || '',
+            user.role || 'user'
+          ]);
+          
+          if (result.rows.length === 0) {
+            throw new Error("Failed to create user with PostgreSQL in final attempt");
+          }
+          
+          return result.rows[0] as User;
+        } finally {
+          client.release();
+        }
+      } catch (finalError) {
+        log(`All attempts to create user failed: ${finalError}`, "supabase");
+        throw finalError;
+      }
     }
   }
 
@@ -890,76 +994,213 @@ export class SupabaseStorage implements IStorage {
   }
 
   async addToCart(cartItem: InsertCartItem): Promise<CartItem> {
-    // Check if item already exists in cart
-    const { data: existingItems, error: findError } = await supabase
-      .from('cart_items')
-      .select('*')
-      .eq('user_id', cartItem.userId)
-      .eq('product_id', cartItem.productId);
-    
-    if (findError) {
-      log(`Error checking existing cart item: ${findError.message}`, "supabase");
-      throw findError;
-    }
-    
-    // If item exists, update its quantity
-    if (existingItems && existingItems.length > 0) {
-      const existingItem = existingItems[0];
-      return this.updateCartItem(existingItem.id, existingItem.quantity + cartItem.quantity);
-    }
-    
-    // Otherwise, insert new cart item
-    const { data, error } = await supabase
-      .from('cart_items')
-      .insert(cartItem)
-      .select()
-      .single();
-    
-    if (error) {
-      log(`Error adding to cart: ${error.message}`, "supabase");
+    try {
+      // First try with Supabase
+      try {
+        // Check if item already exists in cart
+        const { data: existingItems, error: findError } = await supabase
+          .from('cart_items')
+          .select('*')
+          .eq('user_id', cartItem.userId)
+          .eq('product_id', cartItem.productId);
+        
+        if (findError) {
+          log(`Error checking existing cart item: ${findError.message}`, "supabase");
+          throw findError;
+        }
+        
+        // If item exists, update its quantity
+        if (existingItems && existingItems.length > 0) {
+          const existingItem = existingItems[0];
+          return this.updateCartItem(existingItem.id, existingItem.quantity + cartItem.quantity);
+        }
+        
+        // Otherwise, insert new cart item
+        const { data, error } = await supabase
+          .from('cart_items')
+          .insert(cartItem)
+          .select()
+          .single();
+        
+        if (error) {
+          log(`Error adding to cart via Supabase: ${error.message}`, "supabase");
+          throw error;
+        }
+        
+        return data;
+      } catch (supabaseError) {
+        // Fallback to direct PostgreSQL
+        log(`Falling back to PostgreSQL for addToCart: ${supabaseError}`, "supabase");
+        
+        const client = await pool.connect();
+        try {
+          // First check if product exists
+          const productCheck = await client.query(
+            'SELECT id FROM products WHERE id = $1',
+            [cartItem.productId]
+          );
+          
+          if (productCheck.rows.length === 0) {
+            throw new Error(`Product with id ${cartItem.productId} not found`);
+          }
+          
+          // Check if item already exists in cart
+          const existingCheck = await client.query(
+            'SELECT * FROM cart_items WHERE user_id = $1 AND product_id = $2',
+            [cartItem.userId, cartItem.productId]
+          );
+          
+          // If item exists, update its quantity
+          if (existingCheck.rows.length > 0) {
+            const existingItem = existingCheck.rows[0];
+            const newQuantity = existingItem.quantity + cartItem.quantity;
+            
+            const updateResult = await client.query(
+              `UPDATE cart_items 
+               SET quantity = $1 
+               WHERE id = $2 
+               RETURNING id, user_id as "userId", product_id as "productId", quantity, added_at as "addedAt"`,
+              [newQuantity, existingItem.id]
+            );
+            
+            return updateResult.rows[0] as CartItem;
+          }
+          
+          // Otherwise, insert new cart item
+          const insertResult = await client.query(
+            `INSERT INTO cart_items (user_id, product_id, quantity, added_at)
+             VALUES ($1, $2, $3, NOW())
+             RETURNING id, user_id as "userId", product_id as "productId", quantity, added_at as "addedAt"`,
+            [cartItem.userId, cartItem.productId, cartItem.quantity]
+          );
+          
+          if (insertResult.rows.length === 0) {
+            throw new Error('Failed to add item to cart');
+          }
+          
+          return insertResult.rows[0] as CartItem;
+        } finally {
+          client.release();
+        }
+      }
+    } catch (error) {
+      log(`Error adding to cart: ${error}`, "supabase");
       throw error;
     }
-    
-    return data;
   }
 
   async updateCartItem(id: number, quantity: number): Promise<CartItem> {
-    const { data, error } = await supabase
-      .from('cart_items')
-      .update({ quantity })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      log(`Error updating cart item: ${error.message}`, "supabase");
+    try {
+      // First try with Supabase
+      const { data, error } = await supabase
+        .from('cart_items')
+        .update({ quantity })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        log(`Error updating cart item via Supabase: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const result = await client.query(
+            `UPDATE cart_items 
+             SET quantity = $1 
+             WHERE id = $2 
+             RETURNING id, user_id as "userId", product_id as "productId", quantity, added_at as "addedAt"`,
+            [quantity, id]
+          );
+          
+          if (result.rows.length === 0) {
+            throw new Error(`Cart item with id ${id} not found`);
+          }
+          
+          return result.rows[0] as CartItem;
+        } finally {
+          client.release();
+        }
+      }
+      
+      return data;
+    } catch (error) {
+      log(`Error updating cart item: ${error}`, "supabase");
       throw error;
     }
-    
-    return data;
   }
 
   async removeCartItem(id: number): Promise<void> {
-    const { error } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
-      log(`Error removing cart item: ${error.message}`, "supabase");
-      throw error;
+    try {
+      // First try with Supabase
+      const { error } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        log(`Error removing cart item via Supabase: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          await client.query('DELETE FROM cart_items WHERE id = $1', [id]);
+        } finally {
+          client.release();
+        }
+      }
+    } catch (error) {
+      log(`Error removing cart item: ${error}`, "supabase");
+      
+      // Last attempt with PostgreSQL
+      try {
+        const client = await pool.connect();
+        try {
+          await client.query('DELETE FROM cart_items WHERE id = $1', [id]);
+        } finally {
+          client.release();
+        }
+      } catch (finalError) {
+        log(`Final attempt to remove cart item failed: ${finalError}`, "supabase");
+        throw finalError;
+      }
     }
   }
 
   async clearCart(userId: number): Promise<void> {
-    const { error } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (error) {
-      log(`Error clearing cart: ${error.message}`, "supabase");
-      throw error;
+    try {
+      // First try with Supabase
+      const { error } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (error) {
+        log(`Error clearing cart via Supabase: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+        } finally {
+          client.release();
+        }
+      }
+    } catch (error) {
+      log(`Error clearing cart: ${error}`, "supabase");
+      
+      // Last attempt with PostgreSQL
+      try {
+        const client = await pool.connect();
+        try {
+          await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+        } finally {
+          client.release();
+        }
+      } catch (finalError) {
+        log(`Final attempt to clear cart failed: ${finalError}`, "supabase");
+        throw finalError;
+      }
     }
   }
 }
