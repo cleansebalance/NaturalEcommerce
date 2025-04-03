@@ -1,7 +1,7 @@
 import {
-  categories, products, reviews, testimonials, orders,
-  type Category, type Product, type Review, type Testimonial, type Order,
-  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder
+  categories, products, reviews, testimonials, orders, users,
+  type Category, type Product, type Review, type Testimonial, type Order, type User,
+  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder, type InsertUser
 } from "@shared/schema";
 import { IStorage } from "./storage";
 import { supabase } from "./supabase";
@@ -373,6 +373,93 @@ export class SupabaseStorage implements IStorage {
         return undefined;
       }
       log(`Error fetching order by id: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data;
+  }
+  
+  async getUserOrders(userId: number): Promise<Order[]> {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (error) {
+      log(`Error fetching user orders: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data || [];
+  }
+  
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      // If not found, return undefined rather than throwing
+      if (error.code === 'PGRST116') {
+        return undefined;
+      }
+      log(`Error fetching user by id: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data;
+  }
+  
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single();
+    
+    if (error) {
+      // If not found, return undefined rather than throwing
+      if (error.code === 'PGRST116') {
+        return undefined;
+      }
+      log(`Error fetching user by username: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data;
+  }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error) {
+      // If not found, return undefined rather than throwing
+      if (error.code === 'PGRST116') {
+        return undefined;
+      }
+      log(`Error fetching user by email: ${error.message}`, "supabase");
+      throw error;
+    }
+    
+    return data;
+  }
+  
+  async createUser(user: InsertUser): Promise<User> {
+    const { data, error } = await supabase
+      .from('users')
+      .insert(user)
+      .select()
+      .single();
+    
+    if (error) {
+      log(`Error creating user: ${error.message}`, "supabase");
       throw error;
     }
     

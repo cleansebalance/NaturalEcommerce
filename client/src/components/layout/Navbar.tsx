@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
 import { UserProfileDrawer } from '@/components/UserProfileDrawer';
 
 const Navbar = () => {
@@ -9,7 +9,7 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const { toggleCart, itemCount } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
 
   // Handle scroll effect
@@ -69,7 +69,7 @@ const Navbar = () => {
               <button 
                 className="user-profile-toggle p-2 rounded-full hover:bg-light transition-all duration-300 mr-2"
                 onClick={toggleUserProfile}
-                aria-label={isAuthenticated ? "My Account" : "Sign In"}
+                aria-label={user ? "My Account" : "Sign In"}
               >
                 <i className="fas fa-user text-dark"></i>
               </button>

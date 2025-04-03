@@ -5,8 +5,12 @@ import { supabaseStorage } from "./supabaseStorage";
 import { insertProductSchema, insertOrderSchema } from "@shared/schema";
 import { z } from "zod";
 import { migrateToSupabase } from "./setupSupabase";
+import { setupAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
+  
   // API Routes
   
   // Categories

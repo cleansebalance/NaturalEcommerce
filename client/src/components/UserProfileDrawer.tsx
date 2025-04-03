@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
 import { X, User, ShoppingBag, Heart, Settings, LogOut, Database } from 'lucide-react';
 
 interface UserProfileDrawerProps {
@@ -10,7 +10,7 @@ interface UserProfileDrawerProps {
 
 export function UserProfileDrawer({ isOpen, onClose }: UserProfileDrawerProps) {
   const [, setLocation] = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function UserProfileDrawer({ isOpen, onClose }: UserProfileDrawerProps) {
   }, [isOpen]);
 
   const handleLogout = () => {
-    logout();
+    logoutMutation.mutate();
     onClose();
     setLocation('/');
   };
@@ -70,7 +70,7 @@ export function UserProfileDrawer({ isOpen, onClose }: UserProfileDrawerProps) {
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-6 border-b">
             <h2 className="text-xl font-medium">
-              {isAuthenticated ? 'My Account' : 'Sign In'}
+              {user ? 'My Account' : 'Sign In'}
             </h2>
             <button onClick={onClose} className="p-1 rounded-full hover:bg-neutral-100 transition-colors">
               <X className="h-5 w-5" />
@@ -78,7 +78,7 @@ export function UserProfileDrawer({ isOpen, onClose }: UserProfileDrawerProps) {
           </div>
           
           <div className="flex-grow overflow-y-auto p-6">
-            {isAuthenticated ? (
+            {user ? (
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
                   <div className="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center">
@@ -157,7 +157,7 @@ export function UserProfileDrawer({ isOpen, onClose }: UserProfileDrawerProps) {
             )}
           </div>
           
-          {isAuthenticated && (
+          {user && (
             <div className="p-6 border-t">
               <button 
                 onClick={handleLogout}

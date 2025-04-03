@@ -1,11 +1,17 @@
 import {
-  categories, products, reviews, testimonials, orders,
-  type Category, type Product, type Review, type Testimonial, type Order,
-  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder
+  categories, products, reviews, testimonials, orders, users,
+  type Category, type Product, type Review, type Testimonial, type Order, type User,
+  type InsertCategory, type InsertProduct, type InsertReview, type InsertTestimonial, type InsertOrder, type InsertUser
 } from "@shared/schema";
 import { log } from "./vite";
 
 export interface IStorage {
+  // Users
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
   // Categories
   getAllCategories(): Promise<Category[]>;
   getCategoryById(id: number): Promise<Category | undefined>;
@@ -29,6 +35,7 @@ export interface IStorage {
   // Orders
   createOrder(order: InsertOrder): Promise<Order>;
   getOrderById(id: number): Promise<Order | undefined>;
+  getUserOrders(userId: number): Promise<Order[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -37,12 +44,14 @@ export class MemStorage implements IStorage {
   private reviews: Map<number, Review>;
   private testimonials: Map<number, Testimonial>;
   private orders: Map<number, Order>;
+  private users: Map<number, User>;
   
   private categoryId: number;
   private productId: number;
   private reviewId: number;
   private testimonialId: number;
   private orderId: number;
+  private userId: number;
   
   constructor() {
     this.categories = new Map();
@@ -50,12 +59,14 @@ export class MemStorage implements IStorage {
     this.reviews = new Map();
     this.testimonials = new Map();
     this.orders = new Map();
+    this.users = new Map();
     
     this.categoryId = 1;
     this.productId = 1;
     this.reviewId = 1;
     this.testimonialId = 1;
     this.orderId = 1;
+    this.userId = 1;
     
     this.initializeData();
   }
@@ -253,6 +264,34 @@ export class MemStorage implements IStorage {
   
   async getOrderById(id: number): Promise<Order | undefined> {
     return this.orders.get(id);
+  }
+  
+  async getUserOrders(userId: number): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(order => order.userId === userId);
+  }
+  
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+  
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.username === username);
+  }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+  
+  async createUser(user: InsertUser): Promise<User> {
+    const id = this.userId++;
+    const newUser = { 
+      ...user, 
+      id, 
+      createdAt: new Date()
+    };
+    this.users.set(id, newUser);
+    return newUser;
   }
 }
 
