@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useCart } from '@/context/CartContext';
+// Temporarily disabled while fixing cart context issues
+// import { useCart } from '@/contexts/CartContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // The featured product is hardcoded for now since it's a special showcase item
@@ -21,7 +22,12 @@ const featuredProduct = {
 
 const FeaturedProduct = () => {
   const [quantity, setQuantity] = useState(1);
-  const { addItem } = useCart();
+  
+  // Temporarily use a dummy function for cart operations
+  const addToCart = (product: any, qty: number) => {
+    console.log("Adding to cart:", product, "quantity:", qty);
+    // This will be implemented later
+  };
 
   const decreaseQuantity = () => {
     if (quantity > 1) {
@@ -34,7 +40,7 @@ const FeaturedProduct = () => {
   };
 
   const handleAddToCart = () => {
-    addItem(featuredProduct, quantity);
+    addToCart(featuredProduct, quantity);
   };
 
   return (

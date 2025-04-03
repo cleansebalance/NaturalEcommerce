@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { Product } from '@/types';
-import { useCart } from '@/context/CartContext';
+import { Product } from '../../types';
+
+// Temporarily disable cart functionality
+// import { useCart } from '../../contexts/CartContext';
 
 interface ProductCardProps {
   product: Product;
@@ -9,7 +11,12 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isWishlist, setIsWishlist] = useState(false);
-  const { addItem } = useCart();
+  
+  // Temporarily use a dummy cart function
+  const addToCart = () => {
+    console.log("Add to cart clicked:", product);
+    // This will be implemented later
+  };
 
   const toggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -20,7 +27,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem(product);
+    addToCart();
   };
 
   return (

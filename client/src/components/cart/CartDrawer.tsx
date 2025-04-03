@@ -1,10 +1,15 @@
-import { useCart } from '@/context/CartContext';
+// Temporarily disable cart context integration
+// import { useCart } from '@/contexts/CartContext';
 import CartItem from './CartItem';
 import { useLocation } from 'wouter';
 import { Separator } from '@/components/ui/separator';
 
 const CartDrawer = () => {
-  const { state, toggleCart, subtotal } = useCart();
+  // Temporarily use dummy cart state while fixing cart context issues
+  const state = { isOpen: false, items: [] };
+  const subtotal = 0;
+  const toggleCart = (isOpen: boolean) => console.log("toggleCart", isOpen);
+  
   const [, setLocation] = useLocation();
 
   const handleCheckout = () => {
@@ -54,9 +59,10 @@ const CartDrawer = () => {
             <div className="flex-1 overflow-y-auto py-6 px-4 sm:px-6">
               <div className="flow-root">
                 <ul className="divide-y divide-neutral">
-                  {state.items.map(item => (
+                  {/* Temporarily disabled while fixing cart context issues */}
+                  {/* {state.items.map(item => (
                     <CartItem key={item.product.id} item={item} />
-                  ))}
+                  ))} */}
                 </ul>
               </div>
             </div>

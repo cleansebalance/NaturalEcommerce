@@ -5,8 +5,8 @@ import {
   UseMutationResult 
 } from "@tanstack/react-query";
 import { User } from "@shared/schema";
-import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
+import { useToast } from "../hooks/use-toast";
 
 // Type excluding password for safety
 type SafeUser = Omit<User, "password">;
