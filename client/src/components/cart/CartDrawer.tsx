@@ -14,6 +14,7 @@ const CartDrawer = () => {
 
   const handleContinueShopping = () => {
     toggleCart(false);
+    setLocation('/shop');
   };
 
   return (

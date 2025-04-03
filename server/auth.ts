@@ -7,9 +7,12 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SchemaUser } from "@shared/schema";
 import { db } from "./db";
-import MemoryStore from "memorystore";
-import connectPgSimple from "connect-pg-simple";
+import * as memorystore from "memorystore";
+import * as connectPgSimple from "connect-pg-simple";
 import { log } from "./vite";
+
+const MemoryStore = memorystore(session);
+const PgStore = connectPgSimple(session);
 
 declare global {
   namespace Express {
@@ -37,7 +40,6 @@ export function setupAuth(app: Express) {
   let sessionStore;
   if (process.env.DATABASE_URL) {
     // Use PostgreSQL session store if database is available
-    const PgStore = connectPgSimple(session);
     sessionStore = new PgStore({
       conString: process.env.DATABASE_URL,
       createTableIfMissing: true
@@ -45,11 +47,20 @@ export function setupAuth(app: Express) {
     log("Using PostgreSQL session store", "auth");
   } else {
     // Fall back to memory store
-    const MemStore = MemoryStore(session);
-    sessionStore = new MemStore({
+    sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     });
     log("Using in-memory session store", "auth");
+  }
+
+  // Clear session store to fix any corrupted sessions
+  try {
+    if (typeof sessionStore.clear === 'function') {
+      log("Clearing session store to fix corrupted sessions", "auth");
+      sessionStore.clear();
+    }
+  } catch (err) {
+    log(`Error clearing session store: ${err}`, "auth");
   }
 
   const sessionSettings: session.SessionOptions = {
@@ -89,9 +100,12 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
+      if (!user) {
+        return done(null, false);
+      }
+      return done(null, user);
     } catch (error) {
-      done(error);
+      return done(error);
     }
   });
 
