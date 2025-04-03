@@ -20,6 +20,13 @@ import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import Sustainability from "./pages/Sustainability";
+import Ingredients from "./pages/Ingredients";
+import Blog from "./pages/Blog";
+import FAQ from "./pages/FAQ";
+import ShippingReturns from "./pages/ShippingReturns";
+import TrackOrder from "./pages/TrackOrder";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import NotFound from "./pages/not-found";
 
 function Router() {
@@ -33,6 +40,13 @@ function Router() {
       <Route path="/contact" component={Contact} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
+      <Route path="/sustainability" component={Sustainability} />
+      <Route path="/ingredients" component={Ingredients} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/faq" component={FAQ} />
+      <Route path="/shipping-returns" component={ShippingReturns} />
+      <Route path="/track-order" component={TrackOrder} />
+      <Route path="/order-confirmation" component={OrderConfirmation} />
       
       {/* Protected routes - require authentication */}
       <ProtectedRoute path="/checkout" component={Checkout} />

@@ -41,9 +41,9 @@ const Footer = () => {
             <h4 className="text-lg font-bold mb-6">Company</h4>
             <ul className="space-y-3">
               <li><Link href="/about" className="opacity-80 hover:opacity-100 transition-opacity duration-300">About Us</Link></li>
-              <li><Link href="/about" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Sustainability</Link></li>
-              <li><Link href="/about" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Ingredients</Link></li>
-              <li><Link href="/" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Blog</Link></li>
+              <li><Link href="/sustainability" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Sustainability</Link></li>
+              <li><Link href="/ingredients" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Ingredients</Link></li>
+              <li><Link href="/blog" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Blog</Link></li>
               <li><Link href="/contact" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Contact Us</Link></li>
             </ul>
           </div>
@@ -51,11 +51,11 @@ const Footer = () => {
           <div>
             <h4 className="text-lg font-bold mb-6">Help</h4>
             <ul className="space-y-3">
-              <li><Link href="/" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Shipping & Returns</Link></li>
-              <li><Link href="/" className="opacity-80 hover:opacity-100 transition-opacity duration-300">FAQ</Link></li>
+              <li><Link href="/shipping-returns" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Shipping & Returns</Link></li>
+              <li><Link href="/faq" className="opacity-80 hover:opacity-100 transition-opacity duration-300">FAQ</Link></li>
               <li><Link href="/privacy-policy" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Privacy Policy</Link></li>
               <li><Link href="/terms-of-service" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Terms of Service</Link></li>
-              <li><Link href="/" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Track Order</Link></li>
+              <li><Link href="/track-order" className="opacity-80 hover:opacity-100 transition-opacity duration-300">Track Order</Link></li>
             </ul>
           </div>
         </div>
