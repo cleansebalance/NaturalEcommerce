@@ -1,9 +1,9 @@
 import { createRoot } from "react-dom/client";
-import SimpleApp from "./SimpleApp"; // Using SimpleApp for diagnostic purposes
+import App from "./App";
 import "./index.css";
 
 // Display a confirmation message in the console
-console.log("main.tsx is being executed - attempting to render SimpleApp");
+console.log("main.tsx is being executed - attempting to render App");
 
 // Try to get the root element
 const rootElement = document.getElementById("root");
@@ -11,8 +11,8 @@ console.log("Root element found:", rootElement);
 
 // Render the app with error handling
 try {
-  createRoot(rootElement!).render(<SimpleApp />);
-  console.log("SimpleApp rendered successfully");
+  createRoot(rootElement!).render(<App />);
+  console.log("App rendered successfully");
 } catch (error) {
-  console.error("Error rendering SimpleApp:", error);
+  console.error("Error rendering App:", error);
 }
