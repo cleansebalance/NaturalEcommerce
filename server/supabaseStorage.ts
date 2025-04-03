@@ -613,56 +613,180 @@ export class SupabaseStorage implements IStorage {
   }
   
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .single();
-    
-    if (error) {
-      // If not found, return undefined rather than throwing
-      if (error.code === 'PGRST116') {
-        return undefined;
+    try {
+      // First attempt to use Supabase
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+      
+      if (error) {
+        // If not found, return undefined
+        if (error.code === 'PGRST116') {
+          return undefined;
+        }
+        
+        // For other errors, try direct PostgreSQL connection as fallback
+        log(`Error fetching user by username via Supabase: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const result = await client.query(
+            'SELECT * FROM users WHERE username = $1',
+            [username]
+          );
+          
+          if (result.rows.length === 0) {
+            return undefined;
+          }
+          
+          return result.rows[0] as User;
+        } finally {
+          client.release();
+        }
       }
-      log(`Error fetching user by username: ${error.message}`, "supabase");
-      throw error;
+      
+      return data;
+    } catch (error) {
+      log(`Critical error in getUserByUsername: ${error}`, "supabase");
+      // For critical errors, still try direct PostgreSQL
+      try {
+        const client = await pool.connect();
+        try {
+          const result = await client.query(
+            'SELECT * FROM users WHERE username = $1',
+            [username]
+          );
+          
+          if (result.rows.length === 0) {
+            return undefined;
+          }
+          
+          return result.rows[0] as User;
+        } finally {
+          client.release();
+        }
+      } catch (pgError) {
+        log(`Failed to fallback to PostgreSQL: ${pgError}`, "supabase");
+        throw pgError;
+      }
     }
-    
-    return data;
   }
   
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
-    
-    if (error) {
-      // If not found, return undefined rather than throwing
-      if (error.code === 'PGRST116') {
-        return undefined;
+    try {
+      // First attempt to use Supabase
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (error) {
+        // If not found, return undefined
+        if (error.code === 'PGRST116') {
+          return undefined;
+        }
+        
+        // For other errors, try direct PostgreSQL connection as fallback
+        log(`Error fetching user by email via Supabase: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const result = await client.query(
+            'SELECT * FROM users WHERE email = $1',
+            [email]
+          );
+          
+          if (result.rows.length === 0) {
+            return undefined;
+          }
+          
+          return result.rows[0] as User;
+        } finally {
+          client.release();
+        }
       }
-      log(`Error fetching user by email: ${error.message}`, "supabase");
-      throw error;
+      
+      return data;
+    } catch (error) {
+      log(`Critical error in getUserByEmail: ${error}`, "supabase");
+      // For critical errors, still try direct PostgreSQL
+      try {
+        const client = await pool.connect();
+        try {
+          const result = await client.query(
+            'SELECT * FROM users WHERE email = $1',
+            [email]
+          );
+          
+          if (result.rows.length === 0) {
+            return undefined;
+          }
+          
+          return result.rows[0] as User;
+        } finally {
+          client.release();
+        }
+      } catch (pgError) {
+        log(`Failed to fallback to PostgreSQL: ${pgError}`, "supabase");
+        throw pgError;
+      }
     }
-    
-    return data;
   }
   
   async createUser(user: InsertUser): Promise<User> {
-    const { data, error } = await supabase
-      .from('users')
-      .insert(user)
-      .select()
-      .single();
-    
-    if (error) {
-      log(`Error creating user: ${error.message}`, "supabase");
+    try {
+      // First attempt to use Supabase
+      const { data, error } = await supabase
+        .from('users')
+        .insert(user)
+        .select()
+        .single();
+      
+      if (error) {
+        log(`Error creating user via Supabase: ${error.message}`, "supabase");
+        
+        // Fallback to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          // Generate a new id
+          const idResult = await client.query("SELECT COALESCE(MAX(id), 0) + 1 as new_id FROM users");
+          const newId = idResult.rows[0].new_id;
+          
+          // Format the query and values
+          const keys = Object.keys(user);
+          const values = Object.values(user);
+          const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+          const columns = keys.join(', ');
+          
+          // Insert the user
+          const query = `
+            INSERT INTO users (id, ${columns}, created_at)
+            VALUES ($1, ${placeholders}, NOW())
+            RETURNING *
+          `;
+          
+          const result = await client.query(query, [newId, ...values]);
+          
+          if (result.rows.length === 0) {
+            throw new Error("Failed to create user with PostgreSQL");
+          }
+          
+          return result.rows[0] as User;
+        } finally {
+          client.release();
+        }
+      }
+      
+      return data;
+    } catch (error) {
+      log(`Critical error in createUser: ${error}`, "supabase");
       throw error;
     }
-    
-    return data;
   }
 
   // Cart Items

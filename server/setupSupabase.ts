@@ -532,7 +532,7 @@ export async function migrateToSupabase() {
     
     try {
       // Try to access each table through Supabase
-      const tables = ['categories', 'products', 'testimonials'];
+      const tables = ['categories', 'products', 'testimonials', 'users', 'cart_items', 'orders', 'reviews'];
       let allTablesAccessible = true;
       
       for (const table of tables) {
