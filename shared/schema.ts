@@ -28,12 +28,11 @@ export const products = pgTable("products", {
   originalPrice: doublePrecision("original_price"),
   description: text("description").notNull(),
   imageUrl: text("image_url").notNull(),
-  rating: doublePrecision("rating").notNull(),
-  reviewCount: integer("review_count").notNull(),
   categoryId: integer("category_id").notNull(),
-  isFeatured: boolean("is_featured").notNull().default(false),
-  isBestSeller: boolean("is_best_seller").default(false),
-  isNewArrival: boolean("is_new_arrival").default(false),
+  rating: doublePrecision("rating").default(5.0),
+  reviewCount: integer("review_count").default(0),
+  featured: boolean("featured").default(false),
+  inStock: boolean("in_stock").default(true),
 });
 
 export const reviews = pgTable("reviews", {
@@ -49,10 +48,9 @@ export const reviews = pgTable("reviews", {
 export const testimonials = pgTable("testimonials", {
   id: serial("id").primaryKey(),
   userName: text("user_name").notNull(),
-  userImageUrl: text("user_image_url").notNull(),
+  userImage: text("user_image").notNull(),
   rating: integer("rating").notNull(),
-  comment: text("comment").notNull(),
-  isVerified: boolean("is_verified").notNull().default(true),
+  text: text("text").notNull(),
 });
 
 export const cartItems = pgTable("cart_items", {
@@ -79,7 +77,9 @@ export const insertCategorySchema = createInsertSchema(categories);
 export const insertProductSchema = createInsertSchema(products);
 export const insertReviewSchema = createInsertSchema(reviews);
 export const insertTestimonialSchema = createInsertSchema(testimonials);
-export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true, addedAt: true });
+export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true, addedAt: true }).extend({
+  quantity: z.number().min(1).default(1), // Ensure quantity is always provided with a minimum of 1
+});
 export const insertOrderSchema = createInsertSchema(orders);
 
 // Types

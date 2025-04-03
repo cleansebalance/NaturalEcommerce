@@ -6,6 +6,9 @@ import {
 import { log } from "./vite";
 
 export interface IStorage {
+  // Session store for authentication
+  sessionStore: any;
+  
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -45,7 +48,13 @@ export interface IStorage {
   getUserOrders(userId: number): Promise<Order[]>;
 }
 
+// Import necessary packages for memory store
+import createMemoryStoreModule from 'memorystore';
+import expressSession from 'express-session';
+
 export class MemStorage implements IStorage {
+  sessionStore: any; // For storing sessions in memory
+  
   private categories: Map<number, Category>;
   private products: Map<number, Product>;
   private reviews: Map<number, Review>;
@@ -63,6 +72,12 @@ export class MemStorage implements IStorage {
   private cartItemId: number;
   
   constructor() {
+    // Create memory store for session
+    const MemoryStore = createMemoryStoreModule(expressSession);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Prune expired entries every 24h
+    });
+    
     this.categories = new Map();
     this.products = new Map();
     this.reviews = new Map();
@@ -83,28 +98,38 @@ export class MemStorage implements IStorage {
   }
   
   // Initialize with some sample data
-  private initializeData() {
+  private async initializeData() {
     // Add Categories
-    const facialCare = this.createCategory({
+    const facialCareCategory = {
+      id: 1,
       name: "Facial Care",
       description: "Cleansers, serums, masks, and more",
       imageUrl: "https://images.unsplash.com/photo-1598454444604-73563a529875?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=700&h=800&q=80"
-    });
+    };
+    this.categories.set(facialCareCategory.id, facialCareCategory);
+    this.categoryId = 2;
     
-    const bodyRituals = this.createCategory({
+    const bodyRitualsCategory = {
+      id: 2,
       name: "Body Rituals",
       description: "Oils, scrubs, lotions, and more",
       imageUrl: "https://images.unsplash.com/photo-1596870230056-88eea6ef6d12?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=700&h=800&q=80"
-    });
+    };
+    this.categories.set(bodyRitualsCategory.id, bodyRitualsCategory);
+    this.categoryId = 3;
     
-    const aromatherapy = this.createCategory({
+    const aromatherapyCategory = {
+      id: 3,
       name: "Aromatherapy",
       description: "Essential oils, diffusers, and blends",
       imageUrl: "https://images.unsplash.com/photo-1593150320617-fc076c75ff85?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=700&h=800&q=80"
-    });
+    };
+    this.categories.set(aromatherapyCategory.id, aromatherapyCategory);
+    this.categoryId = 4;
     
     // Add Products
-    this.createProduct({
+    const product1 = {
+      id: 1,
       name: "Harmony Facial Cleanser",
       tagline: "Purify & Balance",
       price: 34.00,
@@ -112,13 +137,15 @@ export class MemStorage implements IStorage {
       imageUrl: "https://images.unsplash.com/photo-1595876210541-bc5e4a35de24?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=900&q=80",
       rating: 4.5,
       reviewCount: 128,
-      categoryId: facialCare.id,
-      isFeatured: true,
-      isBestSeller: false,
-      isNewArrival: false
-    });
+      categoryId: facialCareCategory.id,
+      featured: true,
+      inStock: true,
+      originalPrice: null
+    };
+    this.products.set(product1.id, product1);
     
-    this.createProduct({
+    const product2 = {
+      id: 2,
       name: "Tranquil Face Serum",
       tagline: "Hydrate & Soothe",
       price: 49.00,
@@ -126,13 +153,15 @@ export class MemStorage implements IStorage {
       imageUrl: "https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=900&q=80",
       rating: 5.0,
       reviewCount: 76,
-      categoryId: facialCare.id,
-      isFeatured: true,
-      isBestSeller: false,
-      isNewArrival: false
-    });
+      categoryId: facialCareCategory.id,
+      featured: true,
+      inStock: true,
+      originalPrice: null
+    };
+    this.products.set(product2.id, product2);
     
-    this.createProduct({
+    const product3 = {
+      id: 3,
       name: "Renewal Body Scrub",
       tagline: "Exfoliate & Renew",
       price: 42.00,
@@ -140,13 +169,15 @@ export class MemStorage implements IStorage {
       imageUrl: "https://images.unsplash.com/photo-1616769364512-4f5659d12046?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=900&q=80",
       rating: 4.7,
       reviewCount: 214,
-      categoryId: bodyRituals.id,
-      isFeatured: true,
-      isBestSeller: true,
-      isNewArrival: false
-    });
+      categoryId: bodyRitualsCategory.id,
+      featured: true,
+      inStock: true,
+      originalPrice: null
+    };
+    this.products.set(product3.id, product3);
     
-    this.createProduct({
+    const product4 = {
+      id: 4,
       name: "Serene Body Oil",
       tagline: "Nourish & Restore",
       price: 38.00,
@@ -154,13 +185,15 @@ export class MemStorage implements IStorage {
       imageUrl: "https://images.unsplash.com/photo-1655344085290-ba7e9e049934?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=900&q=80",
       rating: 4.0,
       reviewCount: 92,
-      categoryId: bodyRituals.id,
-      isFeatured: true,
-      isBestSeller: false,
-      isNewArrival: false
-    });
+      categoryId: bodyRitualsCategory.id,
+      featured: true,
+      inStock: true,
+      originalPrice: null
+    };
+    this.products.set(product4.id, product4);
     
-    this.createProduct({
+    const product5 = {
+      id: 5,
       name: "Ultimate Harmony Kit",
       tagline: "Complete Wellness Set",
       price: 129.00,
@@ -169,36 +202,43 @@ export class MemStorage implements IStorage {
       imageUrl: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1024&h=1200&q=80",
       rating: 5.0,
       reviewCount: 48,
-      categoryId: facialCare.id,
-      isFeatured: false,
-      isBestSeller: false,
-      isNewArrival: true
-    });
+      categoryId: facialCareCategory.id,
+      featured: false,
+      inStock: true
+    };
+    this.products.set(product5.id, product5);
+    
+    this.productId = 6;
     
     // Add Testimonials
-    this.createTestimonial({
+    const testimonial1 = {
+      id: 1,
       userName: "Sarah J.",
-      userImageUrl: "https://randomuser.me/api/portraits/women/44.jpg",
+      userImage: "https://randomuser.me/api/portraits/women/44.jpg",
       rating: 5,
-      comment: "I've been using the Tranquil Face Serum for three months now, and my skin has never looked better. The natural ingredients make a noticeable difference!",
-      isVerified: true
-    });
+      text: "I've been using the Tranquil Face Serum for three months now, and my skin has never looked better. The natural ingredients make a noticeable difference!"
+    };
+    this.testimonials.set(testimonial1.id, testimonial1);
     
-    this.createTestimonial({
+    const testimonial2 = {
+      id: 2,
       userName: "Michael T.",
-      userImageUrl: "https://randomuser.me/api/portraits/men/32.jpg",
+      userImage: "https://randomuser.me/api/portraits/men/32.jpg",
       rating: 5,
-      comment: "The Ultimate Harmony Kit was the perfect gift for my mom. She loves the entire collection and the beautiful packaging made it extra special.",
-      isVerified: true
-    });
+      text: "The Ultimate Harmony Kit was the perfect gift for my mom. She loves the entire collection and the beautiful packaging made it extra special."
+    };
+    this.testimonials.set(testimonial2.id, testimonial2);
     
-    this.createTestimonial({
+    const testimonial3 = {
+      id: 3,
       userName: "Emma R.",
-      userImageUrl: "https://randomuser.me/api/portraits/women/68.jpg",
+      userImage: "https://randomuser.me/api/portraits/women/68.jpg",
       rating: 4,
-      comment: "The Renewal Body Scrub is amazing! It leaves my skin so soft and the scent is divine. I love that all ingredients are natural and sustainable.",
-      isVerified: true
-    });
+      text: "The Renewal Body Scrub is amazing! It leaves my skin so soft and the scent is divine. I love that all ingredients are natural and sustainable."
+    };
+    this.testimonials.set(testimonial3.id, testimonial3);
+    
+    this.testimonialId = 4;
   }
 
   // Categories
@@ -231,7 +271,7 @@ export class MemStorage implements IStorage {
   }
   
   async getFeaturedProducts(): Promise<Product[]> {
-    return Array.from(this.products.values()).filter(product => product.isFeatured);
+    return Array.from(this.products.values()).filter(product => product.featured);
   }
   
   async createProduct(product: InsertProduct): Promise<Product> {
