@@ -44,7 +44,7 @@ app.use((req, res, next) => {
   // Check if Supabase is properly configured and initialized
   try {
     log("Checking Supabase connection...", "supabase");
-    const { data } = await supabase.from('categories').select('*').limit(1);
+    const { data, error } = await supabase.from('categories').select('*').limit(1);
     
     if (data && data.length > 0) {
       log("Supabase tables detected, using Supabase storage", "supabase");
@@ -54,10 +54,33 @@ app.use((req, res, next) => {
       setStorage(supabaseStorage);
       log("Switched to Supabase storage successfully", "supabase");
     } else {
-      log("No Supabase tables detected, using in-memory storage", "supabase");
+      log("No Supabase tables detected, attempting migration...", "supabase");
+      
+      // Attempt to run the migration
+      const migrationSuccess = await migrateToSupabase();
+      
+      if (migrationSuccess) {
+        log("Migration completed successfully, using Supabase storage", "supabase");
+        await supabaseStorage.initialize();
+        setStorage(supabaseStorage);
+      } else {
+        log("Migration failed, falling back to in-memory storage", "supabase");
+      }
     }
   } catch (error) {
-    log(`Supabase connection error: ${error}. Using in-memory storage`, "supabase");
+    log(`Supabase connection error: ${error}`, "supabase");
+    
+    // Attempt migration as a fallback
+    log("Attempting database migration as fallback...", "supabase");
+    const migrationSuccess = await migrateToSupabase();
+    
+    if (migrationSuccess) {
+      log("Fallback migration completed successfully, using Supabase storage", "supabase");
+      await supabaseStorage.initialize();
+      setStorage(supabaseStorage);
+    } else {
+      log("Fallback migration failed, using in-memory storage", "supabase");
+    }
   }
   
   const server = await registerRoutes(app);

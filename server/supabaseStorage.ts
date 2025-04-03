@@ -6,6 +6,7 @@ import {
 import { IStorage } from "./storage";
 import { supabase } from "./supabase";
 import { log } from "./vite";
+import { pool } from './db'; // Import PostgreSQL client
 
 export class SupabaseStorage implements IStorage {
   // Initialize database if necessary
@@ -16,22 +17,31 @@ export class SupabaseStorage implements IStorage {
 
   // Helper method to ensure tables exist
   private async ensureTablesExist() {
-    // Check if categories table has data
-    const { data: categoriesData, error: categoriesError } = await supabase
-      .from('categories')
-      .select('id')
-      .limit(1);
-
-    if (categoriesError) {
-      log(`Error checking categories table: ${categoriesError.message}`, "supabase");
-    }
-
-    // If no categories exist, initialize with sample data
-    if (!categoriesData || categoriesData.length === 0) {
-      log("No categories found, initializing with sample data", "supabase");
-      await this.initializeSampleData();
-    } else {
-      log("Database tables already initialized", "supabase");
+    try {
+      // Check if categories table has data using direct PostgreSQL
+      const client = await pool.connect();
+      try {
+        // Check if any categories exist
+        const result = await client.query('SELECT id FROM categories LIMIT 1');
+        
+        // If no categories exist, initialize with sample data
+        if (result.rowCount === 0) {
+          log("No categories found, initializing with sample data", "supabase");
+          await this.initializeSampleData();
+        } else {
+          log("Database tables already initialized with data", "supabase");
+        }
+      } catch (error) {
+        // Table might not exist yet
+        log(`Database check error: ${error}`, "supabase");
+        log("Attempting to initialize sample data", "supabase");
+        await this.initializeSampleData();
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      log(`Database initialization error: ${error}`, "supabase");
+      throw error;
     }
   }
 
@@ -195,18 +205,33 @@ export class SupabaseStorage implements IStorage {
   }
   
   async createCategory(category: InsertCategory): Promise<Category> {
-    const { data, error } = await supabase
-      .from('categories')
-      .insert(category)
-      .select()
-      .single();
-    
-    if (error) {
-      log(`Error creating category: ${error.message}`, "supabase");
+    try {
+      const client = await pool.connect();
+      try {
+        const query = `
+          INSERT INTO categories (name, description, image_url)
+          VALUES ($1, $2, $3)
+          RETURNING id, name, description, image_url as "imageUrl"
+        `;
+        
+        const result = await client.query(query, [
+          category.name,
+          category.description,
+          category.imageUrl
+        ]);
+        
+        if (result.rows.length > 0) {
+          return result.rows[0];
+        }
+        
+        throw new Error('Failed to create category');
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      log(`Error creating category: ${error}`, "supabase");
       throw error;
     }
-    
-    return data;
   }
   
   // Products
@@ -271,18 +296,50 @@ export class SupabaseStorage implements IStorage {
   }
   
   async createProduct(product: InsertProduct): Promise<Product> {
-    const { data, error } = await supabase
-      .from('products')
-      .insert(product)
-      .select()
-      .single();
-    
-    if (error) {
-      log(`Error creating product: ${error.message}`, "supabase");
+    try {
+      const client = await pool.connect();
+      try {
+        const query = `
+          INSERT INTO products (
+            name, tagline, price, original_price, description, 
+            image_url, rating, review_count, category_id, 
+            is_featured, is_best_seller, is_new_arrival
+          ) 
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          RETURNING 
+            id, name, tagline, price, original_price as "originalPrice", 
+            description, image_url as "imageUrl", rating, review_count as "reviewCount", 
+            category_id as "categoryId", is_featured as "isFeatured", 
+            is_best_seller as "isBestSeller", is_new_arrival as "isNewArrival"
+        `;
+        
+        const result = await client.query(query, [
+          product.name,
+          product.tagline,
+          product.price,
+          product.originalPrice || null,
+          product.description,
+          product.imageUrl,
+          product.rating,
+          product.reviewCount,
+          product.categoryId,
+          product.isFeatured || false,
+          product.isBestSeller || false,
+          product.isNewArrival || false
+        ]);
+        
+        if (result.rows.length > 0) {
+          return result.rows[0];
+        }
+        
+        throw new Error('Failed to create product');
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      log(`Error creating product: ${error}`, "supabase");
       throw error;
     }
-    
-    return data;
   }
   
   // Reviews
@@ -330,18 +387,39 @@ export class SupabaseStorage implements IStorage {
   }
   
   async createTestimonial(testimonial: InsertTestimonial): Promise<Testimonial> {
-    const { data, error } = await supabase
-      .from('testimonials')
-      .insert(testimonial)
-      .select()
-      .single();
-    
-    if (error) {
-      log(`Error creating testimonial: ${error.message}`, "supabase");
+    try {
+      const client = await pool.connect();
+      try {
+        const query = `
+          INSERT INTO testimonials (
+            user_name, user_image_url, rating, comment, is_verified
+          )
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING 
+            id, user_name as "userName", user_image_url as "userImageUrl", 
+            rating, comment, is_verified as "isVerified"
+        `;
+        
+        const result = await client.query(query, [
+          testimonial.userName,
+          testimonial.userImageUrl,
+          testimonial.rating,
+          testimonial.comment,
+          testimonial.isVerified || true
+        ]);
+        
+        if (result.rows.length > 0) {
+          return result.rows[0];
+        }
+        
+        throw new Error('Failed to create testimonial');
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      log(`Error creating testimonial: ${error}`, "supabase");
       throw error;
     }
-    
-    return data;
   }
   
   // Orders

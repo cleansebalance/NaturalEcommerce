@@ -70,7 +70,8 @@ export function setupAuth(app: Express) {
     store: sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+      // Setting maxAge to undefined makes the cookie expire when the browser is closed
+      maxAge: undefined 
     }
   };
 
