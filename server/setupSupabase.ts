@@ -131,8 +131,39 @@ export async function migrateToSupabase() {
 
       // Migrate Products
       const products = await memStorage.getAllProducts();
+      const categoryList = await memStorage.getAllCategories();
+      
+      // Create a map of category names to IDs
+      const categoryMap = new Map<string, number>();
+      for (const category of categoryList) {
+        categoryMap.set(category.name.toLowerCase(), category.id);
+      }
+      
+      // Function to determine category ID based on product name
+      const getCategoryId = (productName: string): number => {
+        if (productName.toLowerCase().includes('facial') || 
+            productName.toLowerCase().includes('face') || 
+            productName.toLowerCase().includes('cleanser') || 
+            productName.toLowerCase().includes('serum')) {
+          return categoryMap.get('facial care') || 1;
+        } else if (productName.toLowerCase().includes('body') || 
+                  productName.toLowerCase().includes('scrub') || 
+                  productName.toLowerCase().includes('oil')) {
+          return categoryMap.get('body rituals') || 2;
+        } else if (productName.toLowerCase().includes('aromatherapy') || 
+                  productName.toLowerCase().includes('essential')) {
+          return categoryMap.get('aromatherapy') || 3;
+        }
+        
+        // Default to the first category if no match
+        return categoryList[0]?.id || 1;
+      };
+      
       for (const product of products) {
         try {
+          // Ensure category_id is never null by using the mapping function
+          const categoryId = product.categoryId || getCategoryId(product.name);
+          
           await client.query(
             `INSERT INTO products (
               id, name, tagline, price, original_price, description, 
@@ -155,7 +186,7 @@ export async function migrateToSupabase() {
               product.imageUrl, 
               product.rating, 
               product.reviewCount, 
-              product.categoryId, 
+              categoryId, // Use the determined category ID
               product.isFeatured, 
               product.isBestSeller || false, 
               product.isNewArrival || false

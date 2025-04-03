@@ -173,16 +173,35 @@ export class SupabaseStorage implements IStorage {
 
   // Categories
   async getAllCategories(): Promise<Category[]> {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*');
-    
-    if (error) {
-      log(`Error fetching categories: ${error.message}`, "supabase");
+    try {
+      // First try using Supabase
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*');
+      
+      if (error) {
+        log(`Error fetching categories via Supabase: ${error.message}`, "supabase");
+        // Fall back to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const query = `
+            SELECT 
+              id, name, description, image_url as "imageUrl"
+            FROM categories
+          `;
+          
+          const result = await client.query(query);
+          return result.rows;
+        } finally {
+          client.release();
+        }
+      }
+      
+      return data || [];
+    } catch (error) {
+      log(`Error fetching categories: ${error}`, "supabase");
       throw error;
     }
-    
-    return data || [];
   }
   
   async getCategoryById(id: number): Promise<Category | undefined> {
@@ -236,16 +255,38 @@ export class SupabaseStorage implements IStorage {
   
   // Products
   async getAllProducts(): Promise<Product[]> {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*');
-    
-    if (error) {
-      log(`Error fetching products: ${error.message}`, "supabase");
+    try {
+      // First try using Supabase
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+      
+      if (error) {
+        log(`Error fetching products via Supabase: ${error.message}`, "supabase");
+        // Fall back to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const query = `
+            SELECT 
+              id, name, tagline, price, original_price as "originalPrice", 
+              description, image_url as "imageUrl", rating, review_count as "reviewCount", 
+              category_id as "categoryId", is_featured as "isFeatured", 
+              is_best_seller as "isBestSeller", is_new_arrival as "isNewArrival"
+            FROM products
+          `;
+          
+          const result = await client.query(query);
+          return result.rows;
+        } finally {
+          client.release();
+        }
+      }
+      
+      return data || [];
+    } catch (error) {
+      log(`Error fetching products: ${error}`, "supabase");
       throw error;
     }
-    
-    return data || [];
   }
   
   async getProductById(id: number): Promise<Product | undefined> {
@@ -282,17 +323,40 @@ export class SupabaseStorage implements IStorage {
   }
   
   async getFeaturedProducts(): Promise<Product[]> {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_featured', true);
-    
-    if (error) {
-      log(`Error fetching featured products: ${error.message}`, "supabase");
+    try {
+      // First try using Supabase
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_featured', true);
+      
+      if (error) {
+        log(`Error fetching featured products via Supabase: ${error.message}`, "supabase");
+        // Fall back to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const query = `
+            SELECT 
+              id, name, tagline, price, original_price as "originalPrice", 
+              description, image_url as "imageUrl", rating, review_count as "reviewCount", 
+              category_id as "categoryId", is_featured as "isFeatured", 
+              is_best_seller as "isBestSeller", is_new_arrival as "isNewArrival"
+            FROM products
+            WHERE is_featured = true
+          `;
+          
+          const result = await client.query(query);
+          return result.rows;
+        } finally {
+          client.release();
+        }
+      }
+      
+      return data || [];
+    } catch (error) {
+      log(`Error fetching featured products: ${error}`, "supabase");
       throw error;
     }
-    
-    return data || [];
   }
   
   async createProduct(product: InsertProduct): Promise<Product> {
@@ -374,16 +438,36 @@ export class SupabaseStorage implements IStorage {
   
   // Testimonials
   async getAllTestimonials(): Promise<Testimonial[]> {
-    const { data, error } = await supabase
-      .from('testimonials')
-      .select('*');
-    
-    if (error) {
-      log(`Error fetching testimonials: ${error.message}`, "supabase");
+    try {
+      // First try using Supabase
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*');
+      
+      if (error) {
+        log(`Error fetching testimonials via Supabase: ${error.message}`, "supabase");
+        // Fall back to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          const query = `
+            SELECT 
+              id, user_name as "userName", user_image_url as "userImageUrl", 
+              rating, comment, is_verified as "isVerified"
+            FROM testimonials
+          `;
+          
+          const result = await client.query(query);
+          return result.rows;
+        } finally {
+          client.release();
+        }
+      }
+      
+      return data || [];
+    } catch (error) {
+      log(`Error fetching testimonials: ${error}`, "supabase");
       throw error;
     }
-    
-    return data || [];
   }
   
   async createTestimonial(testimonial: InsertTestimonial): Promise<Testimonial> {
@@ -546,43 +630,102 @@ export class SupabaseStorage implements IStorage {
 
   // Cart Items
   async getCartItems(userId: number): Promise<CartItemWithProduct[]> {
-    // First get the cart items
-    const { data: cartItems, error: cartError } = await supabase
-      .from('cart_items')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (cartError) {
-      log(`Error fetching cart items: ${cartError.message}`, "supabase");
-      throw cartError;
-    }
-    
-    if (!cartItems || cartItems.length === 0) {
-      return [];
-    }
-    
-    // Then fetch the products and join them
-    const result: CartItemWithProduct[] = [];
-    
-    for (const item of cartItems) {
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', item.productId)
-        .single();
-      
-      if (productError) {
-        log(`Error fetching product for cart item: ${productError.message}`, "supabase");
-        continue; // Skip this item if product not found
+    try {
+      // First try using Supabase
+      try {
+        // First get the cart items
+        const { data: cartItems, error: cartError } = await supabase
+          .from('cart_items')
+          .select('*')
+          .eq('user_id', userId);
+        
+        if (cartError) {
+          throw cartError;
+        }
+        
+        if (!cartItems || cartItems.length === 0) {
+          return [];
+        }
+        
+        // Then fetch the products and join them
+        const result: CartItemWithProduct[] = [];
+        
+        for (const item of cartItems) {
+          const { data: product, error: productError } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', item.productId)
+            .single();
+          
+          if (productError) {
+            log(`Error fetching product for cart item: ${productError.message}`, "supabase");
+            continue; // Skip this item if product not found
+          }
+          
+          result.push({
+            ...item,
+            product
+          });
+        }
+        
+        return result;
+      } catch (supabaseError) {
+        log(`Error fetching cart items via Supabase: ${supabaseError}`, "supabase");
+        
+        // Fall back to direct PostgreSQL
+        const client = await pool.connect();
+        try {
+          // First get cart items
+          const cartItemsQuery = `
+            SELECT 
+              id, user_id as "userId", product_id as "productId", 
+              quantity, added_at as "addedAt"
+            FROM cart_items
+            WHERE user_id = $1
+          `;
+          
+          const cartItemsResult = await client.query(cartItemsQuery, [userId]);
+          const cartItems = cartItemsResult.rows;
+          
+          if (cartItems.length === 0) {
+            return [];
+          }
+          
+          // Then fetch the products and join them
+          const result: CartItemWithProduct[] = [];
+          
+          for (const item of cartItems) {
+            const productQuery = `
+              SELECT 
+                id, name, tagline, price, original_price as "originalPrice", 
+                description, image_url as "imageUrl", rating, review_count as "reviewCount", 
+                category_id as "categoryId", is_featured as "isFeatured", 
+                is_best_seller as "isBestSeller", is_new_arrival as "isNewArrival"
+              FROM products
+              WHERE id = $1
+            `;
+            
+            const productResult = await client.query(productQuery, [item.productId]);
+            
+            if (productResult.rows.length === 0) {
+              continue; // Skip if product not found
+            }
+            
+            result.push({
+              ...item,
+              product: productResult.rows[0]
+            });
+          }
+          
+          return result;
+        } finally {
+          client.release();
+        }
       }
-      
-      result.push({
-        ...item,
-        product
-      });
+    } catch (error) {
+      log(`Error fetching cart items: ${error}`, "supabase");
+      throw error;
     }
-    
-    return result;
   }
 
   async addToCart(cartItem: InsertCartItem): Promise<CartItem> {

@@ -5,6 +5,7 @@ import { migrateToSupabase } from "./setupSupabase";
 import { storage, setStorage } from "./storage";
 import { supabase } from "./supabase";
 import { supabaseStorage } from "./supabaseStorage";
+import { pool } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -43,32 +44,41 @@ app.use((req, res, next) => {
 (async () => {
   // Check if Supabase is properly configured and initialized
   try {
-    log("Checking Supabase connection...", "supabase");
-    const { data, error } = await supabase.from('categories').select('*').limit(1);
+    log("Checking database connection...", "supabase");
     
-    if (data && data.length > 0) {
-      log("Supabase tables detected, using Supabase storage", "supabase");
+    // Check if tables exist using direct PostgreSQL client instead of Supabase
+    const client = await pool.connect();
+    try {
+      // Check if any categories exist
+      const result = await client.query('SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = \'categories\')');
+      const tablesExist = result.rows[0].exists;
       
-      // Initialize Supabase storage and set it as the storage provider
-      await supabaseStorage.initialize();
-      setStorage(supabaseStorage);
-      log("Switched to Supabase storage successfully", "supabase");
-    } else {
-      log("No Supabase tables detected, attempting migration...", "supabase");
-      
-      // Attempt to run the migration
-      const migrationSuccess = await migrateToSupabase();
-      
-      if (migrationSuccess) {
-        log("Migration completed successfully, using Supabase storage", "supabase");
+      if (tablesExist) {
+        log("Database tables detected, using Supabase storage", "supabase");
+        
+        // Initialize Supabase storage and set it as the storage provider
         await supabaseStorage.initialize();
         setStorage(supabaseStorage);
+        log("Switched to Supabase storage successfully", "supabase");
       } else {
-        log("Migration failed, falling back to in-memory storage", "supabase");
+        log("No database tables detected, attempting migration...", "supabase");
+        
+        // Attempt to run the migration
+        const migrationSuccess = await migrateToSupabase();
+        
+        if (migrationSuccess) {
+          log("Migration completed successfully, using Supabase storage", "supabase");
+          await supabaseStorage.initialize();
+          setStorage(supabaseStorage);
+        } else {
+          log("Migration failed, falling back to in-memory storage", "supabase");
+        }
       }
+    } finally {
+      client.release();
     }
   } catch (error) {
-    log(`Supabase connection error: ${error}`, "supabase");
+    log(`Database connection error: ${error}`, "supabase");
     
     // Attempt migration as a fallback
     log("Attempting database migration as fallback...", "supabase");
