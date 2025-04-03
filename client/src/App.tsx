@@ -28,6 +28,7 @@ import ShippingReturns from "./pages/ShippingReturns";
 import TrackOrder from "./pages/TrackOrder";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import NotFound from "./pages/not-found";
+import TestPage from "./pages/test-page";
 
 function Router() {
   return (
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/shipping-returns" component={ShippingReturns} />
       <Route path="/track-order" component={TrackOrder} />
       <Route path="/order-confirmation" component={OrderConfirmation} />
+      <Route path="/test" component={TestPage} /> {/* Added diagnostic test page */}
       
       {/* Protected routes - require authentication */}
       <ProtectedRoute path="/checkout" component={Checkout} />
